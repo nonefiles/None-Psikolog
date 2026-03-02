@@ -1,5 +1,7 @@
+'use client'
+
+import { useEffect, useState } from 'react'
 import { TrendingUp, Clock, Users, CheckCircle2, AlertCircle, Calendar } from 'lucide-react'
-import { mockAppointments, mockClients, getTodayAppointments, getTodayRevenue, getPendingAppointments } from '@/lib/mock-data'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 
@@ -18,19 +20,27 @@ const statusColor: Record<string, string> = {
 }
 
 export default function DashboardPage() {
-  const todayAppts = getTodayAppointments()
-  const todayRevenue = getTodayRevenue()
-  const pending = getPendingAppointments()
-  const upcomingAppts = mockAppointments
-    .filter((a) => a.date >= new Date().toISOString().split('T')[0] && a.status !== 'cancelled')
-    .sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time))
-    .slice(0, 5)
+  const [greetingName, setGreetingName] = useState<string | null>(null)
+  useEffect(() => {
+    try {
+      const authRaw = typeof window !== 'undefined' ? localStorage.getItem('auth_user') : null
+      const profilesRaw = typeof window !== 'undefined' ? localStorage.getItem('profiles') : null
+      const auth = authRaw ? JSON.parse(authRaw) as { id: string } : null
+      const profiles: Array<{ id: string; full_name: string }> = profilesRaw ? JSON.parse(profilesRaw) : []
+      const p = auth ? profiles.find((x) => x.id === auth.id) : null
+      if (p?.full_name) setGreetingName(p.full_name)
+    } catch {}
+  }, [])
+  const todayAppts: any[] = []
+  const todayRevenue = 0
+  const pending: any[] = []
+  const upcomingAppts: any[] = []
 
   const stats = [
     {
       title: 'Bugünkü Gelir',
       value: `₺${todayRevenue.toLocaleString('tr-TR')}`,
-      sub: `${todayAppts.filter(a => a.status === 'confirmed').length} onaylı seans`,
+      sub: `0 onaylı seans`,
       icon: TrendingUp,
       accent: 'text-primary',
       bg: 'bg-accent/60',
@@ -53,7 +63,7 @@ export default function DashboardPage() {
     },
     {
       title: 'Toplam Danışan',
-      value: String(mockClients.length),
+      value: String(0),
       sub: 'Aktif danışan',
       icon: Users,
       accent: 'text-purple-600',
@@ -65,7 +75,9 @@ export default function DashboardPage() {
     <div className="p-6 max-w-6xl mx-auto space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-semibold text-foreground tracking-tight">Hoş Geldiniz, Dr. Ayşe</h1>
+        <h1 className="text-2xl font-semibold text-foreground tracking-tight">
+          {greetingName ? `Hoş Geldiniz, ${greetingName}` : 'Hoş Geldiniz'}
+        </h1>
         <p className="text-muted-foreground mt-1 text-sm">
           {new Date().toLocaleDateString('tr-TR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
         </p>
@@ -148,21 +160,11 @@ export default function DashboardPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            {upcomingAppts.map((apt) => (
-              <div key={apt.id} className="flex items-center justify-between py-2.5 px-3 rounded-lg hover:bg-muted/50 transition-colors">
-                <div>
-                  <p className="text-sm font-medium text-foreground">
-                    {apt.clientName} {apt.clientSurname}
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    {new Date(apt.date).toLocaleDateString('tr-TR', { day: 'numeric', month: 'short' })} · {apt.time}
-                  </p>
-                </div>
-                <Badge variant="outline" className={`text-xs ${statusColor[apt.status]}`}>
-                  {statusLabel[apt.status]}
-                </Badge>
+            {upcomingAppts.length === 0 ? (
+              <div className="text-center py-6 text-muted-foreground text-sm">
+                Yaklaşan randevu bulunmuyor.
               </div>
-            ))}
+            ) : null}
           </CardContent>
         </Card>
       </div>

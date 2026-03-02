@@ -16,7 +16,6 @@ import {
 } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { ChevronLeft, ChevronRight, CalendarDays, Clock } from 'lucide-react'
-import { mockAppointments } from '@/lib/mock-data'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
@@ -45,8 +44,16 @@ export default function CalendarPage() {
   const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
   const days = eachDayOfInterval({ start: calStart, end: calEnd })
 
-  const getApptsForDay = (day: Date) =>
-    mockAppointments.filter((a) => isSameDay(new Date(a.date), day))
+  const getApptsForDay = (_day: Date) =>
+    [] as Array<{
+      id: string
+      time: string
+      clientName: string
+      clientSurname: string
+      clientEmail: string
+      status: keyof typeof statusLabel
+      fee: number
+    }>
 
   const selectedDayAppts = selectedDay
     ? getApptsForDay(selectedDay).sort((a, b) => a.time.localeCompare(b.time))

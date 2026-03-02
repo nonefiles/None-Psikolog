@@ -1,7 +1,16 @@
 'use client'
 
 import { useState } from 'react'
-import { mockTests, Test } from '@/lib/mock-data'
+type Test = {
+  id: string
+  psychologistId: string
+  title: string
+  link: string
+  sentTo: string
+  sentAt: string
+  status: 'sent' | 'answered'
+  answers?: string
+}
 import { ClipboardList, Plus, Link2, Send, CheckCircle2, Clock, ChevronDown, ChevronUp, Copy } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +19,7 @@ import { cn } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 
 export default function TestsPage() {
-  const [tests, setTests] = useState<Test[]>(mockTests)
+  const [tests, setTests] = useState<Test[]>([])
   const [showForm, setShowForm] = useState(false)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [form, setForm] = useState({ title: '', link: '', sentTo: '' })
@@ -145,91 +154,13 @@ export default function TestsPage() {
       </div>
 
       {/* Awaiting Answer */}
-      {sent.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-            Yanıt Bekleniyor
-          </h2>
-          <div className="space-y-2">
-            {sent.map((t) => (
-              <div key={t.id} className="bg-card border border-border rounded-xl p-4 flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="w-8 h-8 bg-yellow-50 rounded-lg flex items-center justify-center shrink-0">
-                    <ClipboardList className="w-4 h-4 text-yellow-600" />
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
-                    <p className="text-xs text-muted-foreground">
-                      {t.sentTo} · {new Date(t.sentAt).toLocaleDateString('tr-TR')}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Badge className="bg-yellow-100 text-yellow-700 border-0 text-xs">Bekliyor</Badge>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="h-7 w-7"
-                    onClick={() => handleCopy(t.link, t.id)}
-                    title="Linki Kopyala"
-                  >
-                    <Copy className="w-3.5 h-3.5" />
-                  </Button>
-                  {copied === t.id && (
-                    <span className="text-xs text-primary">Kopyalandı!</span>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
+      {sent.length === 0 && (
+        <div className="text-sm text-muted-foreground">Gönderilmiş test bulunmuyor.</div>
       )}
 
       {/* Answered Tests */}
-      {answered.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-muted-foreground mb-2 uppercase tracking-wide">
-            Yanıtlanan Testler
-          </h2>
-          <div className="space-y-2">
-            {answered.map((t) => (
-              <div key={t.id} className="bg-card border border-border rounded-xl overflow-hidden">
-                <button
-                  onClick={() => setExpandedId(expandedId === t.id ? null : t.id)}
-                  className="w-full flex items-center justify-between gap-4 p-4 text-left hover:bg-muted/50 transition-colors"
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 bg-green-50 rounded-lg flex items-center justify-center shrink-0">
-                      <CheckCircle2 className="w-4 h-4 text-green-600" />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">{t.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {t.sentTo} · {new Date(t.sentAt).toLocaleDateString('tr-TR')}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    <Badge className="bg-green-100 text-green-700 border-0 text-xs">Yanıtlandı</Badge>
-                    {expandedId === t.id ? (
-                      <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                    ) : (
-                      <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                    )}
-                  </div>
-                </button>
-                {expandedId === t.id && t.answers && (
-                  <div className="px-4 pb-4 pt-0">
-                    <div className="bg-muted/50 rounded-lg p-3">
-                      <p className="text-xs font-semibold text-muted-foreground mb-1.5">Sonuçlar</p>
-                      <p className="text-sm text-foreground leading-relaxed">{t.answers}</p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        </div>
+      {answered.length === 0 && (
+        <div className="text-sm text-muted-foreground">Yanıtlanmış test bulunmuyor.</div>
       )}
     </div>
   )

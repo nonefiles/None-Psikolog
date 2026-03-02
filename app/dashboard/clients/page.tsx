@@ -1,7 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { mockClients, Client } from '@/lib/mock-data'
+type Client = {
+  id: string
+  name: string
+  surname: string
+  phone: string
+  email: string
+  notes: string
+  files: { id: string; name: string; type: string; uploadedAt: string; size: string }[]
+  firstSession: string
+  lastSession: string
+  totalSessions: number
+}
 import { Search, FileText, Upload, StickyNote, Users, ChevronRight, File, X } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -10,11 +21,12 @@ import { cn } from '@/lib/utils'
 
 export default function ClientsPage() {
   const [search, setSearch] = useState('')
-  const [selected, setSelected] = useState<Client | null>(mockClients[0])
+  const [selected, setSelected] = useState<Client | null>(null)
   const [note, setNote] = useState(selected?.notes ?? '')
   const [editingNote, setEditingNote] = useState(false)
 
-  const filtered = mockClients.filter(
+  const clients: Client[] = []
+  const filtered = clients.filter(
     (c) =>
       `${c.name} ${c.surname}`.toLowerCase().includes(search.toLowerCase()) ||
       c.email.toLowerCase().includes(search.toLowerCase())
@@ -52,35 +64,7 @@ export default function ClientsPage() {
 
           {/* Client List */}
           <div className="divide-y divide-border">
-            {filtered.length === 0 ? (
-              <div className="py-10 text-center text-muted-foreground text-sm">Sonuç bulunamadı.</div>
-            ) : (
-              filtered.map((c) => (
-                <button
-                  key={c.id}
-                  onClick={() => handleSelect(c)}
-                  className={cn(
-                    'w-full flex items-center justify-between px-4 py-3 text-left hover:bg-muted/50 transition-colors',
-                    selected?.id === c.id && 'bg-accent/30'
-                  )}
-                >
-                  <div className="flex items-center gap-3 min-w-0">
-                    <div className="w-8 h-8 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-semibold text-primary">
-                        {c.name[0]}{c.surname[0]}
-                      </span>
-                    </div>
-                    <div className="min-w-0">
-                      <p className="text-sm font-medium text-foreground truncate">
-                        {c.name} {c.surname}
-                      </p>
-                      <p className="text-xs text-muted-foreground truncate">{c.email}</p>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                </button>
-              ))
-            )}
+            <div className="py-10 text-center text-muted-foreground text-sm">Kayıt bulunmuyor.</div>
           </div>
         </div>
 

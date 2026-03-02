@@ -2,18 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
-import { getPsychologistByUsername, mockPsychologist } from '@/lib/mock-data'
-import { createSupabaseBrowser } from '@/lib/supabase'
-import {
-  Calendar,
-  Clock,
-  ChevronLeft,
-  ChevronRight,
-  CheckCircle2,
-  Brain,
-  MapPin,
-  Star,
-} from 'lucide-react'
+ 
+import { Calendar, Clock, ChevronLeft, ChevronRight, CheckCircle2, Brain } from 'lucide-react'
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday, isBefore, startOfDay } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
@@ -22,13 +12,18 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { cn } from '@/lib/utils'
 
-// Mock available time slots
-const availableSlots = ['09:00', '10:00', '11:00', '13:00', '14:00', '15:00', '16:00']
-
-// Simulate some booked slots
-const bookedSlots: Record<string, string[]> = {
-  '2026-03-02': ['09:00', '10:00', '14:00'],
-  '2026-03-04': ['11:00'],
+function toMinutes(hhmm: string) {
+  const [h, m] = hhmm.split(':').map(Number)
+  return h * 60 + m
+}
+function toHHMM(mins: number) {
+  const h = Math.floor(mins / 60).toString().padStart(2, '0')
+  const m = (mins % 60).toString().padStart(2, '0')
+  return `${h}:${m}`
+}
+function isoWeekday(date: Date) {
+  const d = date.getDay() // 0=Sun
+  return d === 0 ? 7 : d // 1..7
 }
 
 type Step = 'select-date' | 'fill-form' | 'success'
@@ -36,24 +31,19 @@ type Step = 'select-date' | 'fill-form' | 'success'
 export default function BookingPage() {
   const params = useParams()
   const username = params?.username as string
-  const psy = getPsychologistByUsername(username) ?? mockPsychologist
-  const supabase = createSupabaseBrowser()
   const [displayName, setDisplayName] = useState<string | null>(null)
   useEffect(() => {
     let active = true
-    supabase
-      .from('profiles')
-      .select('full_name')
-      .eq('slug', username)
-      .maybeSingle()
-      .then(({ data }) => {
-        if (!active) return
-        if (data?.full_name) setDisplayName(data.full_name)
-      })
+    try {
+      const profilesRaw = typeof window !== 'undefined' ? localStorage.getItem('profiles') : null
+      const profiles: Array<{ slug: string; full_name: string }> = profilesRaw ? JSON.parse(profilesRaw) : []
+      const p = profiles.find((x) => x.slug === username)
+      if (active && p?.full_name) setDisplayName(p.full_name)
+    } catch {}
     return () => {
       active = false
     }
-  }, [supabase, username])
+  }, [username])
 
   const [step, setStep] = useState<Step>('select-date')
   const [currentMonth, setCurrentMonth] = useState(new Date())
@@ -69,8 +59,31 @@ export default function BookingPage() {
   const weekDays = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz']
 
   const selectedDateKey = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null
-  const takenSlots = selectedDateKey ? (bookedSlots[selectedDateKey] ?? []) : []
-  const freeSlots = availableSlots.filter((s) => !takenSlots.includes(s))
+  // read schedule for this username
+  const profilesRaw = typeof window !== 'undefined' ? localStorage.getItem('profiles') : null
+  const schedulesRaw = typeof window !== 'undefined' ? localStorage.getItem('schedules') : null
+  const profiles: Array<{ id: string; slug: string }> = profilesRaw ? JSON.parse(profilesRaw) : []
+  const schedules: Array<{ userId: string; weekly: Record<number, { enabled: boolean; start: string; end: string }>; slotMinutes: number }> =
+    schedulesRaw ? JSON.parse(schedulesRaw) : []
+  const owner = profiles.find((p) => p.slug === username)
+  const sched = owner ? schedules.find((s) => s.userId === owner.id) : null
+  let freeSlots: string[] = []
+  if (selectedDate && sched) {
+    const wd = isoWeekday(selectedDate) as 1|2|3|4|5|6|7
+    const day = sched.weekly[wd]
+    if (day?.enabled) {
+      const start = toMinutes(day.start)
+      const end = toMinutes(day.end)
+      for (let t = start; t + sched.slotMinutes <= end; t += sched.slotMinutes) {
+        freeSlots.push(toHHMM(t))
+      }
+      if (isSameDay(selectedDate, new Date())) {
+        const now = new Date()
+        const nowMins = now.getHours() * 60 + now.getMinutes()
+        freeSlots = freeSlots.filter((hhmm) => toMinutes(hhmm) > nowMins)
+      }
+    }
+  }
 
   function handleDayClick(day: Date) {
     if (isBefore(day, startOfDay(new Date()))) return
@@ -114,7 +127,7 @@ export default function BookingPage() {
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Brain className="w-4 h-4 text-primary shrink-0" />
-              <span className="text-foreground">{displayName ?? psy.name}</span>
+              <span className="text-foreground">{displayName ?? username}</span>
             </div>
           </div>
           <p className="text-xs text-muted-foreground">
@@ -155,7 +168,7 @@ export default function BookingPage() {
               <p className="text-sm font-medium text-foreground">
                 {selectedDate ? format(selectedDate, "d MMMM yyyy, EEEE", { locale: tr }) : ''}
               </p>
-              <p className="text-xs text-muted-foreground">{selectedTime} · {psy.name}</p>
+              <p className="text-xs text-muted-foreground">{selectedTime} · {displayName ?? username}</p>
             </div>
           </div>
 
@@ -250,24 +263,9 @@ export default function BookingPage() {
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-lg font-semibold text-foreground">{displayName ?? psy.name}</h1>
-                <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">{psy.title}</span>
+                <h1 className="text-lg font-semibold text-foreground">{displayName ?? username}</h1>
               </div>
-              <p className="text-sm text-muted-foreground mt-0.5">{psy.specialty}</p>
-              <div className="flex items-center gap-3 mt-1.5">
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Clock className="w-3 h-3" />
-                  <span>{psy.sessionDuration} dk</span>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <Star className="w-3 h-3 fill-yellow-400 text-yellow-400" />
-                  <span>₺{psy.sessionFee.toLocaleString('tr-TR')} / seans</span>
-                </div>
-                <div className="flex items-center gap-1 text-xs text-muted-foreground">
-                  <MapPin className="w-3 h-3" />
-                  <span>Online / Yüz Yüze</span>
-                </div>
-              </div>
+              <div className="flex items-center gap-3 mt-1.5" />
             </div>
           </div>
         </div>
@@ -383,7 +381,7 @@ export default function BookingPage() {
               <p className="font-medium text-foreground">
                 {format(selectedDate, "d MMMM yyyy, EEEE", { locale: tr })} · {selectedTime}
               </p>
-              <p className="text-muted-foreground text-xs">{psy.sessionDuration} dakika seans</p>
+              <p className="text-muted-foreground text-xs">Seans</p>
             </div>
             <Button
               onClick={() => setStep('fill-form')}

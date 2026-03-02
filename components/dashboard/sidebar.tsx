@@ -13,7 +13,7 @@ import {
   Brain,
   ExternalLink,
 } from 'lucide-react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
@@ -24,6 +24,8 @@ const navItems = [
   { href: '/dashboard/clients', label: 'Danışan Arşivi', icon: Users },
   { href: '/dashboard/tests', label: 'Test & Ödevler', icon: ClipboardList },
   { href: '/dashboard/accounting', label: 'Muhasebe', icon: Receipt },
+  // settings link (schedule)
+  { href: '/dashboard/settings/schedule', label: 'Mesai Saatleri', icon: CalendarDays },
 ]
 
 export default function DashboardSidebar() {
@@ -31,6 +33,23 @@ export default function DashboardSidebar() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const router = useRouter()
   const envOk = hasSupabaseEnv()
+  const [fullName, setFullName] = useState<string | null>(null)
+  const [slug, setSlug] = useState<string | null>(null)
+
+  // Read profile from localStorage
+  useEffect(() => {
+    try {
+      const authRaw = typeof window !== 'undefined' ? localStorage.getItem('auth_user') : null
+      const profilesRaw = typeof window !== 'undefined' ? localStorage.getItem('profiles') : null
+      const auth = authRaw ? JSON.parse(authRaw) as { id: string } : null
+      const profiles: Array<{ id: string; full_name: string; slug: string }> = profilesRaw ? JSON.parse(profilesRaw) : []
+      const p = auth ? profiles.find((x) => x.id === auth.id) : null
+      if (p) {
+        setFullName(p.full_name)
+        setSlug(p.slug)
+      }
+    } catch {}
+  }, [])
 
   const NavContent = () => (
     <nav className="flex flex-col h-full">
@@ -69,7 +88,7 @@ export default function DashboardSidebar() {
       {/* Footer */}
       <div className="px-3 py-4 border-t border-sidebar-border">
         <Link
-          href="/dr-ayse-demir/booking"
+          href={slug ? `/${slug}/booking` : '/login'}
           target="_blank"
           className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
         >
@@ -77,19 +96,20 @@ export default function DashboardSidebar() {
           Randevu Sayfam
         </Link>
         <div className="mt-3 px-3 py-2.5">
-          <p className="text-xs font-medium text-foreground">Dr. Ayşe Demir</p>
-          <p className="text-xs text-muted-foreground">Klinik Psikolog</p>
+          <p className="text-xs font-medium text-foreground">{fullName ?? 'Profil'}</p>
+          <p className="text-xs text-muted-foreground">{slug ? `/${slug}/booking` : 'Kullanıcı adı ayarlanmadı'}</p>
         </div>
         <Button
           variant="outline"
           className="w-full mt-2"
           onClick={async () => {
-            if (!envOk) {
-              router.replace('/login')
-              return
+            try {
+              localStorage.removeItem('auth_user')
+            } catch {}
+            if (envOk) {
+              const supabase = createSupabaseBrowser()
+              await supabase.auth.signOut()
             }
-            const supabase = createSupabaseBrowser()
-            await supabase.auth.signOut()
             router.replace('/login')
           }}
         >

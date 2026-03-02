@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -18,8 +17,6 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>
 
 export default function LoginPage() {
-  const envOk = hasSupabaseEnv()
-  const supabase = envOk ? createSupabaseBrowser() : null
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { email: '', password: '' } })
@@ -27,34 +24,20 @@ export default function LoginPage() {
   async function onSubmit(values: FormValues) {
     setLoading(true)
     try {
-      if (!supabase) return
-      const { error } = await supabase.auth.signInWithPassword({
-        email: values.email,
-        password: values.password,
-      })
-      if (error) {
+      const profilesRaw = typeof window !== 'undefined' ? localStorage.getItem('profiles') : null
+      const profiles: Array<{ id: string; email: string; password: string }> = profilesRaw ? JSON.parse(profilesRaw) : []
+      const found = profiles.find(
+        (p) => p.email.toLowerCase() === values.email.toLowerCase() && p.password === values.password,
+      )
+      if (!found) {
         form.setError('email', { message: 'Giriş başarısız. Bilgilerinizi kontrol edin.' })
         return
       }
+      localStorage.setItem('auth_user', JSON.stringify({ id: found.id, email: found.email }))
       router.replace('/dashboard')
     } finally {
       setLoading(false)
     }
-  }
-
-  if (!envOk) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md space-y-3 border border-border rounded-xl p-6 bg-card text-center">
-          <h1 className="text-lg font-semibold text-foreground">Yapılandırma Gerekli</h1>
-          <p className="text-sm text-muted-foreground">
-            Supabase anahtarları ayarlanmadı. Lütfen .env.local dosyasına
-            NEXT_PUBLIC_SUPABASE_URL ve NEXT_PUBLIC_SUPABASE_ANON_KEY değerlerini ekleyin.
-          </p>
-          <p className="text-xs text-muted-foreground">Supabase Proje → Settings → API sayfasından alınır.</p>
-        </div>
-      </div>
-    )
   }
 
   return (

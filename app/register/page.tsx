@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -24,8 +23,6 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>
 
 export default function RegisterPage() {
-  const envOk = hasSupabaseEnv()
-  const supabase = envOk ? createSupabaseBrowser() : null
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { full_name: '', email: '', password: '', slug: '' } })
@@ -33,60 +30,34 @@ export default function RegisterPage() {
   async function onSubmit(values: FormValues) {
     setLoading(true)
     try {
-      if (!supabase) return
-      const { error: slugErr, count } = await supabase
-        .from('profiles')
-        .select('id', { count: 'exact', head: true })
-        .eq('slug', values.slug)
-      if (!slugErr && (count ?? 0) > 0) {
+      const profilesRaw = typeof window !== 'undefined' ? localStorage.getItem('profiles') : null
+      const profiles: Array<{ id: string; full_name: string; email: string; password: string; slug: string; created_at: string }> =
+        profilesRaw ? JSON.parse(profilesRaw) : []
+      const slugTaken = profiles.some((p) => p.slug === values.slug)
+      if (slugTaken) {
         form.setError('slug', { message: 'Bu kullanıcı adı kullanımda' })
         return
       }
-
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: values.email,
-        password: values.password,
-        options: {
-          data: { full_name: values.full_name, slug: values.slug },
-        },
-      })
-      if (signUpError) {
-        form.setError('email', { message: signUpError.message })
+      const emailTaken = profiles.some((p) => p.email.toLowerCase() === values.email.toLowerCase())
+      if (emailTaken) {
+        form.setError('email', { message: 'Bu e-posta kullanımda' })
         return
       }
-
-      const user = signUpData.user
-      if (user) {
-        const { error: insErr } = await supabase.from('profiles').insert({
-          id: user.id,
-          full_name: values.full_name,
-          slug: values.slug,
-        })
-        if (insErr) {
-          form.setError('slug', { message: 'Kayıt sırasında bir hata oluştu' })
-          return
-        }
+      const id = (globalThis.crypto && 'randomUUID' in globalThis.crypto ? crypto.randomUUID() : `user_${Date.now()}`)
+      const profile = {
+        id,
+        full_name: values.full_name,
+        email: values.email,
+        password: values.password,
+        slug: values.slug,
+        created_at: new Date().toISOString(),
       }
-
-      router.replace('/dashboard')
+      const next = [...profiles, profile]
+      localStorage.setItem('profiles', JSON.stringify(next))
+      router.replace('/login')
     } finally {
       setLoading(false)
     }
-  }
-
-  if (!envOk) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background p-4">
-        <div className="w-full max-w-md space-y-3 border border-border rounded-xl p-6 bg-card text-center">
-          <h1 className="text-lg font-semibold text-foreground">Yapılandırma Gerekli</h1>
-          <p className="text-sm text-muted-foreground">
-            Supabase anahtarları ayarlanmadı. Lütfen .env.local dosyasına
-            NEXT_PUBLIC_SUPABASE_URL ve NEXT_PUBLIC_SUPABASE_ANON_KEY değerlerini ekleyin.
-          </p>
-          <p className="text-xs text-muted-foreground">Supabase Proje → Settings → API sayfasından alınır.</p>
-        </div>
-      </div>
-    )
   }
 
   return (
