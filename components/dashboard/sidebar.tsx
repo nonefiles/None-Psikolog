@@ -16,7 +16,7 @@ import {
 import { useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
-import { createSupabaseBrowser } from '@/lib/supabase'
+import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
 
 const navItems = [
   { href: '/dashboard', label: 'Ana Sayfa', icon: LayoutDashboard },
@@ -30,7 +30,7 @@ export default function DashboardSidebar() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
   const router = useRouter()
-  const supabase = createSupabaseBrowser()
+  const envOk = hasSupabaseEnv()
 
   const NavContent = () => (
     <nav className="flex flex-col h-full">
@@ -84,6 +84,11 @@ export default function DashboardSidebar() {
           variant="outline"
           className="w-full mt-2"
           onClick={async () => {
+            if (!envOk) {
+              router.replace('/login')
+              return
+            }
+            const supabase = createSupabaseBrowser()
             await supabase.auth.signOut()
             router.replace('/login')
           }}
