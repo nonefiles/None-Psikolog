@@ -2,7 +2,7 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 
 type AuthContextValue = {
   user: User | null
@@ -20,15 +20,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [ready, setReady] = useState(false)
   const supabase = useMemo(() => {
-    if (!hasSupabaseEnv()) return null
-    return createSupabaseBrowser()
+    return createClient()
   }, [])
 
   useEffect(() => {
-    if (!supabase) {
-      setReady(true)
-      return
-    }
     supabase.auth.getSession().then(({ data }) => {
       setSession(data.session ?? null)
       setReady(true)
@@ -45,9 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user: session?.user ?? null,
     session,
     signOut: async () => {
-      if (supabase) {
-        await supabase.auth.signOut()
-      }
+      await supabase.auth.signOut()
     },
   }
 

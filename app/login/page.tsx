@@ -2,16 +2,19 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { createSupabaseBrowser } from '@/lib/supabase'
 
 const schema = z.object({
-  email: z.string().email(),
-  password: z.string().min(6),
+  email: z.string().email('Geçerli bir e-posta girin'),
+  password: z.string().min(6, 'Şifre en az 6 karakter olmalı'),
 })
 
 type FormValues = z.infer<typeof schema>
@@ -19,22 +22,30 @@ type FormValues = z.infer<typeof schema>
 export default function LoginPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { email: '', password: '' } })
 
   async function onSubmit(values: FormValues) {
     setLoading(true)
+    setError(null)
     try {
-      const profilesRaw = typeof window !== 'undefined' ? localStorage.getItem('profiles') : null
-      const profiles: Array<{ id: string; email: string; password: string }> = profilesRaw ? JSON.parse(profilesRaw) : []
-      const found = profiles.find(
-        (p) => p.email.toLowerCase() === values.email.toLowerCase() && p.password === values.password,
-      )
-      if (!found) {
-        form.setError('email', { message: 'Giriş başarısız. Bilgilerinizi kontrol edin.' })
+      const supabase = createSupabaseBrowser()
+      const { error } = await supabase.auth.signInWithPassword({
+        email: values.email,
+        password: values.password,
+      })
+      
+      if (error) {
+        setError(error.message === 'Invalid login credentials' 
+          ? 'E-posta veya şifre hatalı' 
+          : error.message)
         return
       }
-      localStorage.setItem('auth_user', JSON.stringify({ id: found.id, email: found.email }))
+
       router.replace('/dashboard')
+    } catch (err) {
+      setError('Bir hata oluştu. Lütfen tekrar deneyin.')
+      console.error(err)
     } finally {
       setLoading(false)
     }
@@ -47,6 +58,13 @@ export default function LoginPage() {
           <h1 className="text-xl font-semibold text-foreground">Giriş Yap</h1>
           <p className="text-sm text-muted-foreground">Hesabınıza e-posta ve şifre ile giriş yapın</p>
         </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -80,6 +98,13 @@ export default function LoginPage() {
             </Button>
           </form>
         </Form>
+
+        <div className="text-center text-sm">
+          <span className="text-muted-foreground">Hesabınız yok mu? </span>
+          <Link href="/register" className="text-primary hover:underline font-medium">
+            Kayıt Ol
+          </Link>
+        </div>
       </div>
     </div>
   )

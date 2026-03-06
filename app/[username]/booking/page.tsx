@@ -2,46 +2,95 @@
 
 import { useEffect, useState } from 'react'
 import { useParams } from 'next/navigation'
- 
-import { Calendar, Clock, ChevronLeft, ChevronRight, CheckCircle2, Brain } from 'lucide-react'
+import { Calendar, Clock, ChevronLeft, ChevronRight, CheckCircle2, Brain, AlertCircle } from 'lucide-react'
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, isToday, isBefore, startOfDay } from 'date-fns'
 import { tr } from 'date-fns/locale'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
+import { createSupabaseBrowser } from '@/lib/supabase'
 
 function toMinutes(hhmm: string) {
   const [h, m] = hhmm.split(':').map(Number)
   return h * 60 + m
 }
+
 function toHHMM(mins: number) {
   const h = Math.floor(mins / 60).toString().padStart(2, '0')
   const m = (mins % 60).toString().padStart(2, '0')
   return `${h}:${m}`
 }
-function isoWeekday(date: Date) {
-  const d = date.getDay() // 0=Sun
-  return d === 0 ? 7 : d // 1..7
-}
 
 type Step = 'select-date' | 'fill-form' | 'success'
+
+interface PsychologistProfile {
+  id: string
+  full_name: string
+  slug: string
+}
+
+interface AvailabilitySlot {
+  day_of_week: number
+  start_time: string
+  end_time: string
+  slot_minutes: number
+}
 
 export default function BookingPage() {
   const params = useParams()
   const username = params?.username as string
   const [displayName, setDisplayName] = useState<string | null>(null)
+  const [psychologistId, setPsychologistId] = useState<string | null>(null)
+  const [availability, setAvailability] = useState<AvailabilitySlot[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [submitting, setSubmitting] = useState(false)
+
+  // Load psychologist profile and availability
   useEffect(() => {
-    let active = true
-    try {
-      const profilesRaw = typeof window !== 'undefined' ? localStorage.getItem('profiles') : null
-      const profiles: Array<{ slug: string; full_name: string }> = profilesRaw ? JSON.parse(profilesRaw) : []
-      const p = profiles.find((x) => x.slug === username)
-      if (active && p?.full_name) setDisplayName(p.full_name)
-    } catch {}
-    return () => {
-      active = false
+    async function loadPsychologistData() {
+      try {
+        const supabase = createSupabaseBrowser()
+
+        // Get profile by slug
+        const { data: profile, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .eq('slug', username)
+          .single()
+
+        if (profileError || !profile) {
+          setError('Psikolog bulunamadı')
+          setLoading(false)
+          return
+        }
+
+        setDisplayName(profile.full_name)
+        setPsychologistId(profile.id)
+
+        // Get availability
+        const { data: slots } = await supabase
+          .from('availability')
+          .select('day_of_week, start_time, end_time, slot_minutes')
+          .eq('psychologist_id', profile.id)
+
+        if (slots) {
+          setAvailability(slots)
+        }
+
+        setLoading(false)
+      } catch (err) {
+        console.error('Failed to load psychologist data:', err)
+        setError('Bilgi yüklenirken hata oluştu')
+        setLoading(false)
+      }
+    }
+
+    if (username) {
+      loadPsychologistData()
     }
   }, [username])
 
@@ -58,25 +107,20 @@ export default function BookingPage() {
   const days = eachDayOfInterval({ start: calStart, end: calEnd })
   const weekDays = ['Pt', 'Sa', 'Ça', 'Pe', 'Cu', 'Ct', 'Pz']
 
-  const selectedDateKey = selectedDate ? format(selectedDate, 'yyyy-MM-dd') : null
-  // read schedule for this username
-  const profilesRaw = typeof window !== 'undefined' ? localStorage.getItem('profiles') : null
-  const schedulesRaw = typeof window !== 'undefined' ? localStorage.getItem('schedules') : null
-  const profiles: Array<{ id: string; slug: string }> = profilesRaw ? JSON.parse(profilesRaw) : []
-  const schedules: Array<{ userId: string; weekly: Record<number, { enabled: boolean; start: string; end: string }>; slotMinutes: number }> =
-    schedulesRaw ? JSON.parse(schedulesRaw) : []
-  const owner = profiles.find((p) => p.slug === username)
-  const sched = owner ? schedules.find((s) => s.userId === owner.id) : null
+  // Calculate free slots for selected date
   let freeSlots: string[] = []
-  if (selectedDate && sched) {
-    const wd = isoWeekday(selectedDate) as 1|2|3|4|5|6|7
-    const day = sched.weekly[wd]
-    if (day?.enabled) {
-      const start = toMinutes(day.start)
-      const end = toMinutes(day.end)
-      for (let t = start; t + sched.slotMinutes <= end; t += sched.slotMinutes) {
+  if (selectedDate && availability.length > 0) {
+    const dayOfWeek = selectedDate.getDay() === 0 ? 7 : selectedDate.getDay()
+    const daySlot = availability.find((s) => s.day_of_week === dayOfWeek)
+
+    if (daySlot) {
+      const start = toMinutes(daySlot.start_time)
+      const end = toMinutes(daySlot.end_time)
+      for (let t = start; t + daySlot.slot_minutes <= end; t += daySlot.slot_minutes) {
         freeSlots.push(toHHMM(t))
       }
+
+      // Filter out past times for today
       if (isSameDay(selectedDate, new Date())) {
         const now = new Date()
         const nowMins = now.getHours() * 60 + now.getMinutes()
@@ -91,9 +135,48 @@ export default function BookingPage() {
     setSelectedTime(null)
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
-    setStep('success')
+    if (!selectedDate || !selectedTime || !psychologistId) return
+
+    setSubmitting(true)
+    try {
+      const supabase = createSupabaseBrowser()
+
+      // Create the appointment
+      const startDateTime = new Date(selectedDate)
+      const [hours, minutes] = selectedTime.split(':').map(Number)
+      startDateTime.setHours(hours, minutes, 0, 0)
+
+      const endDateTime = new Date(startDateTime)
+      endDateTime.setMinutes(endDateTime.getMinutes() + 50) // Default 50 minutes
+
+      const { error: appointmentError } = await supabase.from('appointments').insert([
+        {
+          psychologist_id: psychologistId,
+          guest_name: `${form.name} ${form.surname}`,
+          guest_email: form.email,
+          guest_phone: form.phone,
+          start_at: startDateTime.toISOString(),
+          end_at: endDateTime.toISOString(),
+          notes: form.details,
+          status: 'pending',
+        },
+      ])
+
+      if (appointmentError) {
+        setError('Randevu kaydedilirken hata oluştu: ' + appointmentError.message)
+        setSubmitting(false)
+        return
+      }
+
+      setStep('success')
+    } catch (err) {
+      console.error('Failed to submit booking:', err)
+      setError('Randevu alınırken hata oluştu')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   // ─── Success Screen ───────────────────────────────────────────────────────
@@ -136,7 +219,12 @@ export default function BookingPage() {
           <Button
             variant="outline"
             className="w-full"
-            onClick={() => { setStep('select-date'); setSelectedDate(null); setSelectedTime(null); setForm({ name: '', surname: '', phone: '', email: '', details: '' }) }}
+            onClick={() => {
+              setStep('select-date')
+              setSelectedDate(null)
+              setSelectedTime(null)
+              setForm({ name: '', surname: '', phone: '', email: '', details: '' })
+            }}
           >
             Yeni Randevu Al
           </Button>
@@ -175,6 +263,14 @@ export default function BookingPage() {
           {/* Form */}
           <div className="bg-card border border-border rounded-xl p-5">
             <h2 className="text-base font-semibold text-foreground mb-4">Bilgilerinizi Girin</h2>
+
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+
             <form onSubmit={handleSubmit} className="space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -238,14 +334,44 @@ export default function BookingPage() {
               <Button
                 type="submit"
                 className="w-full bg-primary text-primary-foreground hover:bg-primary/90 h-11"
+                disabled={submitting}
               >
-                Randevuyu Onayla
+                {submitting ? 'İşleniyor...' : 'Randevuyu Onayla'}
               </Button>
               <p className="text-xs text-center text-muted-foreground">
                 Randevunuz üyelik gerektirmez. Verileriniz güvende tutulur.
               </p>
             </form>
           </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Error State ─────────────────────────────────────────────────────────
+  if (error && !loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="max-w-md w-full text-center space-y-5">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto">
+            <AlertCircle className="w-8 h-8 text-red-600" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Hata</h1>
+            <p className="text-muted-foreground mt-2 text-sm">{error}</p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Loading State ────────────────────────────────────────────────────────
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <div className="text-center space-y-3">
+          <div className="w-10 h-10 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+          <p className="text-sm text-muted-foreground">Bilgiler yükleniyor...</p>
         </div>
       </div>
     )
@@ -259,7 +385,7 @@ export default function BookingPage() {
         <div className="bg-card border border-border rounded-xl p-5">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-full bg-primary/15 flex items-center justify-center shrink-0">
-              <span className="text-xl font-semibold text-primary">AY</span>
+              <span className="text-xl font-semibold text-primary">{displayName?.split(' ').map(n => n[0]).join('') || 'PS'}</span>
             </div>
             <div>
               <div className="flex items-center gap-2">

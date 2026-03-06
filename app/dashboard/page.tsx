@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { TrendingUp, Clock, Users, CheckCircle2, AlertCircle, Calendar } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
 
 const statusLabel: Record<string, string> = {
   pending: 'Bekliyor',
@@ -19,28 +19,129 @@ const statusColor: Record<string, string> = {
   cancelled: 'bg-red-100 text-red-700 border-red-200',
 }
 
+interface Appointment {
+  id: string
+  start_at: string
+  end_at: string
+  status: string
+  guest_name: string
+  guest_email: string
+}
+
+interface Transaction {
+  id: string
+  amount: number
+  type: string
+  occurred_on: string
+}
+
 export default function DashboardPage() {
   const [greetingName, setGreetingName] = useState<string | null>(null)
+  const [todayAppts, setTodayAppts] = useState<Appointment[]>([])
+  const [todayRevenue, setTodayRevenue] = useState(0)
+  const [pending, setPending] = useState<Appointment[]>([])
+  const [upcomingAppts, setUpcomingAppts] = useState<Appointment[]>([])
+  const [clientCount, setClientCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+
   useEffect(() => {
-    try {
-      const authRaw = typeof window !== 'undefined' ? localStorage.getItem('auth_user') : null
-      const profilesRaw = typeof window !== 'undefined' ? localStorage.getItem('profiles') : null
-      const auth = authRaw ? JSON.parse(authRaw) as { id: string } : null
-      const profiles: Array<{ id: string; full_name: string }> = profilesRaw ? JSON.parse(profilesRaw) : []
-      const p = auth ? profiles.find((x) => x.id === auth.id) : null
-      if (p?.full_name) setGreetingName(p.full_name)
-    } catch {}
+    async function loadDashboardData() {
+      if (!hasSupabaseEnv()) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        const supabase = createSupabaseBrowser()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user) {
+          setLoading(false)
+          return
+        }
+
+        // Load profile name
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', user.id)
+          .single()
+
+        if (profile?.full_name) {
+          setGreetingName(profile.full_name)
+        }
+
+        // Get today's date range
+        const today = new Date()
+        const startOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+        const endOfDay = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1)
+
+        // Load today's appointments
+        const { data: appointments } = await supabase
+          .from('appointments')
+          .select('*')
+          .eq('psychologist_id', user.id)
+          .gte('start_at', startOfDay.toISOString())
+          .lt('start_at', endOfDay.toISOString())
+          .order('start_at', { ascending: true })
+
+        if (appointments) {
+          setTodayAppts(appointments)
+          const pendingAppts = appointments.filter((a) => a.status === 'pending')
+          setPending(pendingAppts)
+        }
+
+        // Load today's revenue (confirmed/completed appointments)
+        if (appointments) {
+          const revenue = appointments
+            .filter((a) => a.status === 'confirmed' || a.status === 'completed')
+            .reduce((sum) => sum + 100, 0) // Placeholder: assume 100 per session
+          setTodayRevenue(revenue)
+        }
+
+        // Load upcoming appointments (next 7 days)
+        const nextWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000)
+        const { data: upcoming } = await supabase
+          .from('appointments')
+          .select('*')
+          .eq('psychologist_id', user.id)
+          .gte('start_at', endOfDay.toISOString())
+          .lt('start_at', nextWeek.toISOString())
+          .order('start_at', { ascending: true })
+          .limit(5)
+
+        if (upcoming) {
+          setUpcomingAppts(upcoming)
+        }
+
+        // Load client count
+        const { count } = await supabase
+          .from('clients')
+          .select('*', { count: 'exact', head: true })
+          .eq('psychologist_id', user.id)
+
+        if (count !== null) {
+          setClientCount(count)
+        }
+      } catch (err) {
+        console.error('Failed to load dashboard data:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadDashboardData()
   }, [])
-  const todayAppts: any[] = []
-  const todayRevenue = 0
-  const pending: any[] = []
-  const upcomingAppts: any[] = []
+
+  const confirmedCount = todayAppts.filter(
+    (a) => a.status === 'confirmed' || a.status === 'completed',
+  ).length
 
   const stats = [
     {
       title: 'Bugünkü Gelir',
       value: `₺${todayRevenue.toLocaleString('tr-TR')}`,
-      sub: `0 onaylı seans`,
+      sub: `${confirmedCount} onaylı seans`,
       icon: TrendingUp,
       accent: 'text-primary',
       bg: 'bg-accent/60',
@@ -63,7 +164,7 @@ export default function DashboardPage() {
     },
     {
       title: 'Toplam Danışan',
-      value: String(0),
+      value: String(clientCount),
       sub: 'Aktif danışan',
       icon: Users,
       accent: 'text-purple-600',
@@ -121,9 +222,13 @@ export default function DashboardPage() {
                 Bugün randevu bulunmamaktadır.
               </div>
             ) : (
-              todayAppts
-                .sort((a, b) => a.time.localeCompare(b.time))
-                .map((apt) => (
+              todayAppts.map((apt) => {
+                const startTime = new Date(apt.start_at)
+                const timeStr = startTime.toLocaleTimeString('tr-TR', {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
+                return (
                   <div
                     key={apt.id}
                     className="flex items-center justify-between py-3 px-4 rounded-lg bg-muted/50 hover:bg-muted transition-colors"
@@ -132,21 +237,24 @@ export default function DashboardPage() {
                       <div className="w-1.5 h-8 rounded-full bg-primary shrink-0" />
                       <div>
                         <p className="text-sm font-medium text-foreground">
-                          {apt.clientName} {apt.clientSurname}
+                          {apt.guest_name}
                         </p>
-                        <p className="text-xs text-muted-foreground">{apt.clientEmail}</p>
+                        <p className="text-xs text-muted-foreground">{apt.guest_email}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <span className="text-sm font-medium text-foreground">{apt.time}</span>
+                      <span className="text-sm font-medium text-foreground">{timeStr}</span>
                       <span
-                        className={`text-xs px-2 py-0.5 rounded-full border font-medium ${statusColor[apt.status]}`}
+                        className={`text-xs px-2 py-0.5 rounded-full border font-medium ${
+                          statusColor[apt.status] || 'bg-gray-100 text-gray-700 border-gray-200'
+                        }`}
                       >
-                        {statusLabel[apt.status]}
+                        {statusLabel[apt.status] || apt.status}
                       </span>
                     </div>
                   </div>
-                ))
+                )
+              })
             )}
           </CardContent>
         </Card>
