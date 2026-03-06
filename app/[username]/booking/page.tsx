@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
+import { createSupabaseBrowser } from '@/lib/supabase'
 
 function toMinutes(hhmm: string) {
   const [h, m] = hhmm.split(':').map(Number)
@@ -53,7 +53,7 @@ export default function BookingPage() {
   useEffect(() => {
     async function loadPsychologistData() {
       try {
-        const supabase = createClient()
+        const supabase = createSupabaseBrowser()
 
         // Get profile by slug
         const { data: profile, error: profileError } = await supabase
@@ -141,7 +141,7 @@ export default function BookingPage() {
 
     setSubmitting(true)
     try {
-      const supabase = createClient()
+      const supabase = createSupabaseBrowser()
 
       // Create the appointment
       const startDateTime = new Date(selectedDate)

@@ -13,8 +13,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { createClient } from '@/lib/supabase/client'
-import { hasSupabaseEnv } from '@/lib/supabase'
+import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
 
 type Client = {
   id: string
@@ -81,7 +80,7 @@ export default function ClientsPage() {
       }
 
       try {
-        const supabase = createClient()
+        const supabase = createSupabaseBrowser()
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
@@ -139,7 +138,7 @@ export default function ClientsPage() {
       if (!selected || !userId) return
 
       try {
-        const supabase = createClient()
+        const supabase = createSupabaseBrowser()
 
         // Load shared cases
         const { data: shared } = await supabase
@@ -218,7 +217,7 @@ export default function ClientsPage() {
 
     setSaving(true)
     try {
-      const supabase = createClient()
+      const supabase = createSupabaseBrowser()
       const { error: updateError } = await supabase
         .from('clients')
         .update({ notes_enc: notes })
@@ -247,7 +246,7 @@ export default function ClientsPage() {
 
     setSaving(true)
     try {
-      const supabase = createClient()
+      const supabase = createSupabaseBrowser()
 
       // Check if already shared
       const { data: existing } = await supabase
@@ -316,7 +315,7 @@ export default function ClientsPage() {
 
     setSaving(true)
     try {
-      const supabase = createClient()
+      const supabase = createSupabaseBrowser()
       const { error: deleteError } = await supabase
         .from('shared_cases')
         .delete()
@@ -344,7 +343,7 @@ export default function ClientsPage() {
     setError(null)
 
     try {
-      const supabase = createClient()
+      const supabase = createSupabaseBrowser()
       const file = files[0]
 
       // Generate unique file path
@@ -414,7 +413,7 @@ export default function ClientsPage() {
 
     setUploadingFile(true)
     try {
-      const supabase = createClient()
+      const supabase = createSupabaseBrowser()
 
       // Delete from storage
       const { error: storageError } = await supabase.storage

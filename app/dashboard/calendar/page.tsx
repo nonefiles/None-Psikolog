@@ -19,8 +19,7 @@ import { ChevronLeft, ChevronRight, CalendarDays, Clock, Loader2 } from 'lucide-
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
-import { createClient } from '@/lib/supabase/client'
-import { hasSupabaseEnv } from '@/lib/supabase'
+import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
 
 const statusColor: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -61,7 +60,7 @@ export default function CalendarPage() {
       }
 
       try {
-        const supabase = createClient()
+        const supabase = createSupabaseBrowser()
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {

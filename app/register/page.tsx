@@ -10,7 +10,7 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { createClient } from '@/lib/supabase/client'
+import { createSupabaseBrowser } from '@/lib/supabase'
 
 const schema = z.object({
   full_name: z.string().min(2, 'Ad soyad en az 2 karakter olmalı').max(80),
@@ -35,7 +35,7 @@ export default function RegisterPage() {
     setLoading(true)
     setError(null)
     try {
-      const supabase = createClient()
+      const supabase = createSupabaseBrowser()
 
       // Check if slug is already taken
       const { data: existingProfile } = await supabase
@@ -49,17 +49,10 @@ export default function RegisterPage() {
         return
       }
 
-      // Create auth account with metadata
+      // Create auth account
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
-        options: {
-          emailRedirectTo: `${window.location.origin}/dashboard`,
-          data: {
-            full_name: values.full_name,
-            slug: values.slug,
-          },
-        },
       })
 
       if (authError) {
