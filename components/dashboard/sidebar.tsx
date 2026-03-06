@@ -19,6 +19,7 @@ import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { createClient } from '@/lib/supabase/client'
+import { hasSupabaseEnv } from '@/lib/supabase'
 
 const navItems = [
   { href: '/dashboard', label: 'Ana Sayfa', icon: LayoutDashboard },
@@ -46,7 +47,7 @@ export default function DashboardSidebar() {
       if (!envOk) return
       
       try {
-        const supabase = createSupabaseBrowser()
+        const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
         
         if (!user) return
@@ -122,7 +123,7 @@ export default function DashboardSidebar() {
           className="w-full mt-2"
           onClick={async () => {
             if (envOk) {
-              const supabase = createSupabaseBrowser()
+              const supabase = createClient()
               await supabase.auth.signOut()
             }
             router.replace('/login')

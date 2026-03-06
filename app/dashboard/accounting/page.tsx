@@ -1,5 +1,7 @@
 'use client'
 
+export const dynamic = 'force-dynamic'
+
 type Transaction = {
   id: string
   type: 'income' | 'expense'
