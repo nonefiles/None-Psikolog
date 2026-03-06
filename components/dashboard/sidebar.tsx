@@ -12,6 +12,8 @@ import {
   X,
   Brain,
   ExternalLink,
+  Network,
+  Bell,
 } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
@@ -22,10 +24,12 @@ const navItems = [
   { href: '/dashboard', label: 'Ana Sayfa', icon: LayoutDashboard },
   { href: '/dashboard/calendar', label: 'Takvim', icon: CalendarDays },
   { href: '/dashboard/clients', label: 'Danışan Arşivi', icon: Users },
+  { href: '/dashboard/colleagues', label: 'Meslektaşlar', icon: Network },
   { href: '/dashboard/tests', label: 'Test & Ödevler', icon: ClipboardList },
   { href: '/dashboard/accounting', label: 'Muhasebe', icon: Receipt },
-  // settings link (schedule)
+  // settings links
   { href: '/dashboard/settings/schedule', label: 'Mesai Saatleri', icon: CalendarDays },
+  { href: '/dashboard/settings/notifications', label: 'Bildirimler', icon: Bell },
 ]
 
 export default function DashboardSidebar() {
@@ -36,20 +40,34 @@ export default function DashboardSidebar() {
   const [fullName, setFullName] = useState<string | null>(null)
   const [slug, setSlug] = useState<string | null>(null)
 
-  // Read profile from localStorage
+  // Fetch profile from Supabase
   useEffect(() => {
-    try {
-      const authRaw = typeof window !== 'undefined' ? localStorage.getItem('auth_user') : null
-      const profilesRaw = typeof window !== 'undefined' ? localStorage.getItem('profiles') : null
-      const auth = authRaw ? JSON.parse(authRaw) as { id: string } : null
-      const profiles: Array<{ id: string; full_name: string; slug: string }> = profilesRaw ? JSON.parse(profilesRaw) : []
-      const p = auth ? profiles.find((x) => x.id === auth.id) : null
-      if (p) {
-        setFullName(p.full_name)
-        setSlug(p.slug)
+    async function loadProfile() {
+      if (!envOk) return
+      
+      try {
+        const supabase = createSupabaseBrowser()
+        const { data: { user } } = await supabase.auth.getUser()
+        
+        if (!user) return
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('full_name, slug')
+          .eq('id', user.id)
+          .single()
+
+        if (profile) {
+          setFullName(profile.full_name)
+          setSlug(profile.slug)
+        }
+      } catch (err) {
+        console.error('Failed to load profile:', err)
       }
-    } catch {}
-  }, [])
+    }
+
+    loadProfile()
+  }, [envOk])
 
   const NavContent = () => (
     <nav className="flex flex-col h-full">
@@ -103,9 +121,6 @@ export default function DashboardSidebar() {
           variant="outline"
           className="w-full mt-2"
           onClick={async () => {
-            try {
-              localStorage.removeItem('auth_user')
-            } catch {}
             if (envOk) {
               const supabase = createSupabaseBrowser()
               await supabase.auth.signOut()

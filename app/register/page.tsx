@@ -2,20 +2,23 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { z } from 'zod'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '@/components/ui/form'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { createSupabaseBrowser } from '@/lib/supabase'
 
 const schema = z.object({
-  full_name: z.string().min(2).max(80),
-  email: z.string().email(),
-  password: z.string().min(6),
+  full_name: z.string().min(2, 'Ad soyad en az 2 karakter olmalı').max(80),
+  email: z.string().email('Geçerli bir e-posta girin'),
+  password: z.string().min(6, 'Şifre en az 6 karakter olmalı'),
   slug: z
     .string()
-    .min(3)
+    .min(3, 'Kullanıcı adı en az 3 karakter olmalı')
     .max(30)
     .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, 'Yalnızca küçük harf, rakam ve tire kullanın'),
 })
@@ -25,36 +28,70 @@ type FormValues = z.infer<typeof schema>
 export default function RegisterPage() {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const form = useForm<FormValues>({ resolver: zodResolver(schema), defaultValues: { full_name: '', email: '', password: '', slug: '' } })
 
   async function onSubmit(values: FormValues) {
     setLoading(true)
+    setError(null)
     try {
-      const profilesRaw = typeof window !== 'undefined' ? localStorage.getItem('profiles') : null
-      const profiles: Array<{ id: string; full_name: string; email: string; password: string; slug: string; created_at: string }> =
-        profilesRaw ? JSON.parse(profilesRaw) : []
-      const slugTaken = profiles.some((p) => p.slug === values.slug)
-      if (slugTaken) {
+      const supabase = createSupabaseBrowser()
+
+      // Check if slug is already taken
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('slug', values.slug)
+        .single()
+
+      if (existingProfile) {
         form.setError('slug', { message: 'Bu kullanıcı adı kullanımda' })
         return
       }
-      const emailTaken = profiles.some((p) => p.email.toLowerCase() === values.email.toLowerCase())
-      if (emailTaken) {
-        form.setError('email', { message: 'Bu e-posta kullanımda' })
-        return
-      }
-      const id = (globalThis.crypto && 'randomUUID' in globalThis.crypto ? crypto.randomUUID() : `user_${Date.now()}`)
-      const profile = {
-        id,
-        full_name: values.full_name,
+
+      // Create auth account
+      const { data: authData, error: authError } = await supabase.auth.signUp({
         email: values.email,
         password: values.password,
-        slug: values.slug,
-        created_at: new Date().toISOString(),
+      })
+
+      if (authError) {
+        if (authError.message.includes('already registered')) {
+          form.setError('email', { message: 'Bu e-posta zaten kayıtlı' })
+        } else {
+          setError(authError.message)
+        }
+        return
       }
-      const next = [...profiles, profile]
-      localStorage.setItem('profiles', JSON.stringify(next))
-      router.replace('/login')
+
+      if (!authData.user) {
+        setError('Hesap oluşturma başarısız oldu')
+        return
+      }
+
+      // Create profile
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([
+          {
+            id: authData.user.id,
+            full_name: values.full_name,
+            slug: values.slug,
+            role: 'psychologist',
+            created_at: new Date().toISOString(),
+          },
+        ])
+
+      if (profileError) {
+        setError('Profil oluşturma başarısız: ' + profileError.message)
+        return
+      }
+
+      // Redirect to login
+      router.replace('/login?message=Hesap+başarıyla+oluşturuldu')
+    } catch (err) {
+      setError('Bir hata oluştu. Lütfen tekrar deneyin.')
+      console.error(err)
     } finally {
       setLoading(false)
     }
@@ -67,6 +104,13 @@ export default function RegisterPage() {
           <h1 className="text-xl font-semibold text-foreground">Hesap Oluştur</h1>
           <p className="text-sm text-muted-foreground">Randevularınızı yönetmek için hesabınızı oluşturun</p>
         </div>
+
+        {error && (
+          <Alert variant="destructive">
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <FormField
@@ -127,6 +171,13 @@ export default function RegisterPage() {
             </Button>
           </form>
         </Form>
+
+        <div className="text-center text-sm">
+          <span className="text-muted-foreground">Zaten hesabınız var mı? </span>
+          <Link href="/login" className="text-primary hover:underline font-medium">
+            Giriş Yap
+          </Link>
+        </div>
       </div>
     </div>
   )

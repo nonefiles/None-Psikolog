@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   format,
   startOfMonth,
@@ -15,10 +15,11 @@ import {
   isToday,
 } from 'date-fns'
 import { tr } from 'date-fns/locale'
-import { ChevronLeft, ChevronRight, CalendarDays, Clock } from 'lucide-react'
+import { ChevronLeft, ChevronRight, CalendarDays, Clock, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { cn } from '@/lib/utils'
+import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
 
 const statusColor: Record<string, string> = {
   pending: 'bg-yellow-100 text-yellow-700',
@@ -34,9 +35,61 @@ const statusLabel: Record<string, string> = {
   cancelled: 'İptal',
 }
 
+interface Appointment {
+  id: string
+  start_at: string
+  end_at: string
+  guest_name: string
+  guest_email: string
+  status: string
+}
+
 export default function CalendarPage() {
   const [currentDate, setCurrentDate] = useState(new Date())
   const [selectedDay, setSelectedDay] = useState<Date | null>(new Date())
+  const [appointments, setAppointments] = useState<Appointment[]>([])
+  const [loading, setLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
+
+  // Load appointments
+  useEffect(() => {
+    async function loadAppointments() {
+      if (!hasSupabaseEnv()) {
+        setLoading(false)
+        return
+      }
+
+      try {
+        const supabase = createSupabaseBrowser()
+        const { data: { user } } = await supabase.auth.getUser()
+
+        if (!user) {
+          setLoading(false)
+          return
+        }
+
+        setUserId(user.id)
+
+        // Load all appointments for the psychologist
+        const { data: appts } = await supabase
+          .from('appointments')
+          .select('*')
+          .eq('psychologist_id', user.id)
+          .order('start_at', { ascending: true })
+
+        if (appts) {
+          setAppointments(appts)
+        }
+
+        setLoading(false)
+      } catch (err) {
+        console.error('Failed to load appointments:', err)
+        setLoading(false)
+      }
+    }
+
+    loadAppointments()
+  }, [])
 
   const monthStart = startOfMonth(currentDate)
   const monthEnd = endOfMonth(currentDate)
@@ -44,22 +97,46 @@ export default function CalendarPage() {
   const calEnd = endOfWeek(monthEnd, { weekStartsOn: 1 })
   const days = eachDayOfInterval({ start: calStart, end: calEnd })
 
-  const getApptsForDay = (_day: Date) =>
-    [] as Array<{
-      id: string
-      time: string
-      clientName: string
-      clientSurname: string
-      clientEmail: string
-      status: keyof typeof statusLabel
-      fee: number
-    }>
+  const getApptsForDay = (day: Date) => {
+    const dayStart = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 0, 0, 0)
+    const dayEnd = new Date(day.getFullYear(), day.getMonth(), day.getDate(), 23, 59, 59)
+
+    return appointments
+      .filter((apt) => {
+        const aptStart = new Date(apt.start_at)
+        return aptStart >= dayStart && aptStart <= dayEnd
+      })
+      .map((apt) => {
+        const aptStart = new Date(apt.start_at)
+        return {
+          id: apt.id,
+          time: aptStart.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' }),
+          clientName: apt.guest_name.split(' ')[0],
+          clientSurname: apt.guest_name.split(' ').slice(1).join(' ') || '',
+          clientEmail: apt.guest_email,
+          status: apt.status || 'pending',
+          fee: 100, // Placeholder
+        }
+      })
+      .sort((a, b) => a.time.localeCompare(b.time))
+  }
 
   const selectedDayAppts = selectedDay
     ? getApptsForDay(selectedDay).sort((a, b) => a.time.localeCompare(b.time))
     : []
 
   const weekDays = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz']
+
+  if (loading) {
+    return (
+      <div className="p-6 max-w-6xl mx-auto">
+        <div className="text-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto mb-3 text-primary" />
+          <p className="text-muted-foreground">Takvim yükleniyor...</p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 max-w-6xl mx-auto space-y-6">
