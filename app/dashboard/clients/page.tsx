@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect, useState } from 'react'
-import { Search, FileText, Upload, StickyNote, Users, Share2, Loader2, X } from 'lucide-react'
+import { useEffect, useState, useRef } from 'react'
+import { Search, FileText, Upload, StickyNote, Users, Share2, Loader2, X, Download, Trash2 } from 'lucide-react'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
@@ -33,6 +33,21 @@ type SharedClient = {
   shared_with_name?: string
 }
 
+type ClientDocument = {
+  id: string
+  title: string
+  file_path: string
+  url: string
+  type: string
+  created_at: string
+}
+
+type SessionStats = {
+  totalSessions: number
+  firstSessionDate: string | null
+  lastSessionDate: string | null
+}
+
 export default function ClientsPage() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Client | null>(null)
@@ -47,6 +62,14 @@ export default function ClientsPage() {
   const [colleagues, setColleagues] = useState<Array<{ id: string; full_name: string }>>([])
   const [selectedColleague, setSelectedColleague] = useState<string | null>(null)
   const [sharedWith, setSharedWith] = useState<SharedClient[]>([])
+  const [documents, setDocuments] = useState<ClientDocument[]>([])
+  const [uploadingFile, setUploadingFile] = useState(false)
+  const [sessionStats, setSessionStats] = useState<SessionStats>({
+    totalSessions: 0,
+    firstSessionDate: null,
+    lastSessionDate: null,
+  })
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Load clients
   useEffect(() => {
@@ -109,13 +132,15 @@ export default function ClientsPage() {
     loadData()
   }, [])
 
-  // Load shared cases for selected client
+  // Load shared cases and documents for selected client
   useEffect(() => {
-    async function loadSharedCases() {
+    async function loadClientDetails() {
       if (!selected || !userId) return
 
       try {
         const supabase = createSupabaseBrowser()
+
+        // Load shared cases
         const { data: shared } = await supabase
           .from('shared_cases')
           .select(`
@@ -137,12 +162,42 @@ export default function ClientsPage() {
           }))
           setSharedWith(formattedShared)
         }
+
+        // Load documents
+        const { data: docs } = await supabase
+          .from('client_documents')
+          .select('*')
+          .eq('client_id', selected.id)
+          .order('created_at', { ascending: false })
+
+        if (docs) {
+          setDocuments(docs)
+        }
+
+        // Load session stats
+        const { data: appointments } = await supabase
+          .from('appointments')
+          .select('start_at, end_at, status')
+          .eq('psychologist_id', userId)
+          .eq('client_id', selected.id)
+          .in('status', ['completed', 'confirmed'])
+
+        if (appointments && appointments.length > 0) {
+          const completedAppts = appointments.sort(
+            (a, b) => new Date(a.start_at).getTime() - new Date(b.start_at).getTime(),
+          )
+          setSessionStats({
+            totalSessions: appointments.length,
+            firstSessionDate: completedAppts[0]?.start_at || null,
+            lastSessionDate: completedAppts[completedAppts.length - 1]?.start_at || null,
+          })
+        }
       } catch (err) {
-        console.error('Failed to load shared cases:', err)
+        console.error('Failed to load client details:', err)
       }
     }
 
-    loadSharedCases()
+    loadClientDetails()
   }, [selected, userId])
 
   const filtered = clients.filter(
@@ -280,6 +335,116 @@ export default function ClientsPage() {
     }
   }
 
+  async function handleFileUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const files = event.target.files
+    if (!files || !selected || !userId) return
+
+    setUploadingFile(true)
+    setError(null)
+
+    try {
+      const supabase = createSupabaseBrowser()
+      const file = files[0]
+
+      // Generate unique file path
+      const timestamp = Date.now()
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${selected.id}/${timestamp}-${file.name}`
+
+      // Upload to Storage
+      const { error: uploadError } = await supabase.storage
+        .from('client_documents')
+        .upload(fileName, file)
+
+      if (uploadError) {
+        setError(`Dosya yüklemesi başarısız: ${uploadError.message}`)
+        return
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('client_documents')
+        .getPublicUrl(fileName)
+
+      // Save document metadata
+      const { error: insertError } = await supabase
+        .from('client_documents')
+        .insert([
+          {
+            client_id: selected.id,
+            psychologist_id: userId,
+            title: file.name,
+            file_path: fileName,
+            url: urlData.publicUrl,
+            type: fileExt || 'unknown',
+          },
+        ])
+
+      if (insertError) {
+        setError('Dosya bilgileri kaydedilemedi')
+        return
+      }
+
+      // Reload documents
+      const { data: docs } = await supabase
+        .from('client_documents')
+        .select('*')
+        .eq('client_id', selected.id)
+        .order('created_at', { ascending: false })
+
+      if (docs) {
+        setDocuments(docs)
+      }
+
+      // Reset input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
+    } catch (err) {
+      console.error('Failed to upload file:', err)
+      setError('Dosya yüklenirken bir hata oluştu')
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
+  async function deleteDocument(docId: string, filePath: string) {
+    if (!userId) return
+
+    setUploadingFile(true)
+    try {
+      const supabase = createSupabaseBrowser()
+
+      // Delete from storage
+      const { error: storageError } = await supabase.storage
+        .from('client_documents')
+        .remove([filePath])
+
+      if (storageError) {
+        console.error('Storage delete error:', storageError)
+        // Continue with DB deletion even if storage fails
+      }
+
+      // Delete from database
+      const { error: dbError } = await supabase
+        .from('client_documents')
+        .delete()
+        .eq('id', docId)
+
+      if (dbError) {
+        setError('Dosya silinemedi')
+        return
+      }
+
+      setDocuments(documents.filter((d) => d.id !== docId))
+    } catch (err) {
+      console.error('Failed to delete document:', err)
+      setError('Dosya silinirken bir hata oluştu')
+    } finally {
+      setUploadingFile(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="p-6 max-w-6xl mx-auto">
@@ -368,6 +533,36 @@ export default function ClientsPage() {
                 </div>
               </div>
 
+              {/* Session Stats */}
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <div className="bg-muted/50 rounded-lg p-3 text-center">
+                  <p className="text-xl font-semibold text-foreground">{sessionStats.totalSessions}</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Toplam Seans</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3 text-center">
+                  <p className="text-sm font-medium text-foreground">
+                    {sessionStats.firstSessionDate
+                      ? new Date(sessionStats.firstSessionDate).toLocaleDateString('tr-TR', {
+                          day: 'numeric',
+                          month: 'short',
+                        })
+                      : '-'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">İlk Seans</p>
+                </div>
+                <div className="bg-muted/50 rounded-lg p-3 text-center">
+                  <p className="text-sm font-medium text-foreground">
+                    {sessionStats.lastSessionDate
+                      ? new Date(sessionStats.lastSessionDate).toLocaleDateString('tr-TR', {
+                          day: 'numeric',
+                          month: 'short',
+                        })
+                      : '-'}
+                  </p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Son Seans</p>
+                </div>
+              </div>
+
               <div className="mt-4 flex gap-2">
                 <Button
                   onClick={() => setShareDialogOpen(true)}
@@ -418,6 +613,91 @@ export default function ClientsPage() {
                 <p className="text-sm text-muted-foreground leading-relaxed">
                   {notes || 'Henüz not eklenmemiş.'}
                 </p>
+              )}
+            </div>
+
+            {/* Files */}
+            <div className="bg-card border border-border rounded-xl p-5">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  <h3 className="text-sm font-semibold text-foreground">Dosyalar</h3>
+                  <span className="text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded-full">
+                    {documents.length}
+                  </span>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs gap-1.5"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploadingFile}
+                >
+                  {uploadingFile ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Upload className="w-3 h-3" />
+                  )}
+                  Dosya Yükle
+                </Button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  onChange={handleFileUpload}
+                  className="hidden"
+                  disabled={uploadingFile}
+                />
+              </div>
+
+              {documents.length === 0 ? (
+                <div className="border-2 border-dashed border-border rounded-lg py-8 text-center">
+                  <FileText className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+                  <p className="text-sm text-muted-foreground">Henüz dosya yüklenmemiş</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">PDF, DOC, JPG desteklenir</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {documents.map((doc) => (
+                    <div
+                      key={doc.id}
+                      className="flex items-center gap-3 py-2.5 px-3 rounded-lg border border-border hover:bg-muted/50 transition-colors group"
+                    >
+                      <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                        <FileText className="w-4 h-4 text-blue-600" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium text-foreground truncate">{doc.title}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(doc.created_at).toLocaleDateString('tr-TR')}
+                        </p>
+                      </div>
+                      <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0"
+                          onClick={() => {
+                            const link = document.createElement('a')
+                            link.href = doc.url
+                            link.download = doc.title
+                            link.click()
+                          }}
+                        >
+                          <Download className="w-3.5 h-3.5 text-muted-foreground hover:text-foreground" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 w-6 p-0"
+                          onClick={() => deleteDocument(doc.id, doc.file_path)}
+                          disabled={uploadingFile}
+                        >
+                          <Trash2 className="w-3.5 h-3.5 text-muted-foreground hover:text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
             </div>
 
