@@ -2,7 +2,8 @@
 
 import { createContext, useContext, useEffect, useMemo, useState } from 'react'
 import type { Session, User } from '@supabase/supabase-js'
-import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
+import { hasSupabaseEnv } from '@/lib/supabase'
 
 type AuthContextValue = {
   user: User | null
@@ -21,7 +22,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [ready, setReady] = useState(false)
   const supabase = useMemo(() => {
     if (!hasSupabaseEnv()) return null
-    return createSupabaseBrowser()
+    return createClient()
   }, [])
 
   useEffect(() => {

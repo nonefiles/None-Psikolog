@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { TrendingUp, Clock, Users, CheckCircle2, AlertCircle, Calendar } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
+import { hasSupabaseEnv } from '@/lib/supabase'
 
 const statusLabel: Record<string, string> = {
   pending: 'Bekliyor',
@@ -52,7 +53,7 @@ export default function DashboardPage() {
       }
 
       try {
-        const supabase = createSupabaseBrowser()
+        const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {

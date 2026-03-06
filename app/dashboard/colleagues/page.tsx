@@ -7,7 +7,8 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
+import { hasSupabaseEnv } from '@/lib/supabase'
 
 interface Colleague {
   id: string
@@ -43,7 +44,7 @@ export default function ColleaguesPage() {
       }
 
       try {
-        const supabase = createSupabaseBrowser()
+        const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
@@ -103,7 +104,7 @@ export default function ColleaguesPage() {
 
     setSearching(true)
     try {
-      const supabase = createSupabaseBrowser()
+      const supabase = createClient()
 
       // Search for profiles by name or slug, excluding current user
       const { data: results } = await supabase
@@ -133,7 +134,7 @@ export default function ColleaguesPage() {
 
     setActionLoading(targetId)
     try {
-      const supabase = createSupabaseBrowser()
+      const supabase = createClient()
 
       const { error: insertError } = await supabase.from('connections').insert([
         {
@@ -176,7 +177,7 @@ export default function ColleaguesPage() {
   async function acceptRequest(connectionId: string) {
     setActionLoading(connectionId)
     try {
-      const supabase = createSupabaseBrowser()
+      const supabase = createClient()
 
       const { error: updateError } = await supabase
         .from('connections')
@@ -206,7 +207,7 @@ export default function ColleaguesPage() {
   async function removeConnection(connectionId: string) {
     setActionLoading(connectionId)
     try {
-      const supabase = createSupabaseBrowser()
+      const supabase = createClient()
 
       const { error: deleteError } = await supabase
         .from('connections')

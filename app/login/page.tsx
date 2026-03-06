@@ -10,7 +10,7 @@ import { Form, FormField, FormItem, FormLabel, FormControl, FormMessage } from '
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { createSupabaseBrowser } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
 
 const schema = z.object({
   email: z.string().email('Geçerli bir e-posta girin'),
@@ -29,7 +29,7 @@ export default function LoginPage() {
     setLoading(true)
     setError(null)
     try {
-      const supabase = createSupabaseBrowser()
+      const supabase = createClient()
       const { error } = await supabase.auth.signInWithPassword({
         email: values.email,
         password: values.password,

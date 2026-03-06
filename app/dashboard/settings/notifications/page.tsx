@@ -5,7 +5,8 @@ import { Bell, Mail, CheckCircle2, Loader2, Check } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { createSupabaseBrowser, hasSupabaseEnv } from '@/lib/supabase'
+import { createClient } from '@/lib/supabase/client'
+import { hasSupabaseEnv } from '@/lib/supabase'
 
 interface NotificationSettings {
   id: string
@@ -37,7 +38,7 @@ export default function NotificationsPage() {
       }
 
       try {
-        const supabase = createSupabaseBrowser()
+        const supabase = createClient()
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
@@ -97,7 +98,7 @@ export default function NotificationsPage() {
     setSuccess(false)
 
     try {
-      const supabase = createSupabaseBrowser()
+      const supabase = createClient()
 
       const updatedSettings = { ...settings, [key]: value }
       const { error: updateError } = await supabase
