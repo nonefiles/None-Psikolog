@@ -1,27 +1,44 @@
+// app/layout.tsx
 import type { Metadata } from 'next'
-import { Inter } from 'next/font/google'
-import { Analytics } from '@vercel/analytics/next'
+import { DM_Sans, DM_Serif_Display } from 'next/font/google'
+import { Toaster } from 'react-hot-toast'
 import './globals.css'
-import { AuthProvider } from '@/components/providers/auth-provider'
 
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
+const dmSans = DM_Sans({
+  subsets: ['latin'],
+  variable: '--font-sans',
+  display: 'swap',
+})
+
+const dmSerif = DM_Serif_Display({
+  subsets: ['latin'],
+  weight: '400',
+  style: ['normal', 'italic'],
+  variable: '--font-serif',
+  display: 'swap',
+})
 
 export const metadata: Metadata = {
-  title: 'PsikoRandevu - Psikolog Randevu Platformu',
-  description: 'Psikologların randevu, takvim, danışan arşivi ve ön muhasebesini yönettiği profesyonel SaaS platformu.',
-  generator: 'v0.app',
+  title: 'PsikoPanel',
+  description: 'Psikologlar için pratik yönetim sistemi',
 }
 
-export default function RootLayout({
-  children,
-}: Readonly<{
-  children: React.ReactNode
-}>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="tr">
-      <body className={`${inter.variable} font-sans antialiased`}>
-        <AuthProvider>{children}</AuthProvider>
-        <Analytics />
+      <body className={`${dmSans.variable} ${dmSerif.variable} font-sans bg-cream text-charcoal`}>
+        {children}
+        <Toaster
+          position="bottom-right"
+          toastOptions={{
+            style: {
+              fontFamily: 'var(--font-sans)',
+              fontSize: '13px',
+              background: '#2c2c2c',
+              color: '#fff',
+            },
+          }}
+        />
       </body>
     </html>
   )
