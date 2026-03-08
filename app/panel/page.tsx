@@ -29,7 +29,7 @@ export default async function DashboardPage() {
       .gte('starts_at', startOfDay(today).toISOString())
       .lte('starts_at', endOfDay(today).toISOString())
       .order('starts_at'),
-    supabase.from('appointments').select('*, client:clients(full_name)').eq('psychologist_id', user.id)
+supabase.from('appointments').select('*, client:clients(full_name)').eq('psychologist_id', user.id)
       .gte('starts_at', format(new Date(today.getFullYear(), today.getMonth(), 1), 'yyyy-MM-dd'))
       .lte('starts_at', format(new Date(today.getFullYear(), today.getMonth() + 1, 0), 'yyyy-MM-dd')),
     supabase.from('finance_entries').select('type, amount').eq('psychologist_id', user.id)
