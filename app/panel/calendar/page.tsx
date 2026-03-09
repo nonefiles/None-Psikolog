@@ -11,16 +11,17 @@ import CalendarClient from '@/components/panel/CalendarClient'
 export default async function CalendarPage({
   searchParams,
 }: {
-  searchParams: { month?: string }
+  searchParams: Promise<{ month?: string }>
 }) {
+  const { month: monthParam } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
   // Parse month from query param e.g. "2026-03"
   const today = new Date()
-  const [year, month] = searchParams.month
-    ? searchParams.month.split('-').map(Number)
+  const [year, month] = monthParam
+    ? monthParam.split('-').map(Number)
     : [today.getFullYear(), today.getMonth() + 1]
 
   const viewDate  = new Date(year, month - 1, 1)

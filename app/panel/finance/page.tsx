@@ -8,14 +8,15 @@ import FinanceClient from '@/components/panel/FinanceClient'
 export default async function FinancePage({
   searchParams,
 }: {
-  searchParams: { month?: string }
+  searchParams: Promise<{ month?: string }>
 }) {
+  const { month: monthParam } = await searchParams
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth/login')
 
   const today = new Date()
-  const month = searchParams.month ?? format(today, 'yyyy-MM')
+  const month = monthParam ?? format(today, 'yyyy-MM')
   const [y, m] = month.split('-').map(Number)
   // Ayın son günü doğru hesaplanıyor (Şubat dahil)
   const lastDay = new Date(y, m, 0).getDate()

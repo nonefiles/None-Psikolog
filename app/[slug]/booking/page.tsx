@@ -5,27 +5,29 @@ import BookingForm from '@/components/client/BookingForm'
 import type { PublicProfile } from '@/lib/types'
 
 interface Props {
-  params: { slug: string }
+  params: Promise<{ slug: string }>
 }
 
 export async function generateMetadata({ params }: Props) {
+  const { slug } = await params
   const supabase = await createClient()
   const { data } = await supabase
     .from('profiles')
     .select('full_name, title')
-    .eq('slug', params.slug)
+    .eq('slug', slug)
     .single()
   if (!data) return { title: 'PsikoPanel' }
   return { title: `${data.full_name} — Randevu Al` }
 }
 
 export default async function BookingPage({ params }: Props) {
+  const { slug } = await params
   const supabase = await createClient()
 
   const { data: profile } = await supabase
     .from('profiles')
     .select('id, slug, full_name, title, bio, session_types, session_price, avatar_url')
-    .eq('slug', params.slug)
+    .eq('slug', slug)
     .single()
 
   if (!profile) notFound()
