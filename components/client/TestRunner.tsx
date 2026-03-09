@@ -92,10 +92,15 @@ export default function TestRunner({ test }: Props) {
     return (
       <div className="card p-8 text-center">
         <p className="text-sm text-muted mb-6">Teste başlamadan önce adınızı girin.</p>
-        <input className="input mb-4" placeholder="Adınız (opsiyonel)"
+        <input className="input mb-4" placeholder="Adınız *" required
           value={name} onChange={e => setName(e.target.value)} />
         <button className="btn-primary w-full justify-center py-3"
-          onClick={() => setNameSubmitted(true)}>
+          onClick={() => {
+            if (name.trim()) {
+              setNameSubmitted(true)
+            }
+          }}
+          disabled={!name.trim()}>
           Testi Başlat
         </button>
       </div>

@@ -11,7 +11,7 @@ export async function middleware(request: NextRequest) {
     {
       cookies: {
         getAll() { return request.cookies.getAll() },
-        setAll(cookiesToSet) {
+        setAll(cookiesToSet: { name: string; value: string; options?: any }[]) {
           cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
           supabaseResponse = NextResponse.next({ request })
           cookiesToSet.forEach(({ name, value, options }) =>
@@ -30,10 +30,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // Giriş yapmış kullanıcı login/register sayfasına gelirse panele yönlendir
-  // ama /auth/setup'a geçişe izin ver (profil henüz oluşturulmamış olabilir)
+  // ama /auth/login'a geçişe izin ver (profil henüz oluşturulmamış olabilir)
   if (
     request.nextUrl.pathname.startsWith('/auth') &&
-    !request.nextUrl.pathname.startsWith('/auth/setup') &&
+    !request.nextUrl.pathname.startsWith('/auth/login') &&
     user
   ) {
     return NextResponse.redirect(new URL('/panel', request.url))
@@ -43,5 +43,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/panel/:path*', '/auth/:path*'],
+  matcher: ['/panel/:path*', '/auth/:path*', '/'],
 }

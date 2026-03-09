@@ -26,6 +26,8 @@ export default function HomeworkClient({ homework: initial, profileSlug }: Props
   const [loading, setLoading] = useState(false)
   const [questions, setQuestions] = useState<string[]>([''])
   const [form, setForm] = useState({ title: '', slug: '', description: '', due_date: '' })
+  const [selectedHomework, setSelectedHomework] = useState<HomeworkWithCount | null>(null)
+  const [responses, setResponses] = useState<any[]>([])
 
   const baseUrl = typeof window !== 'undefined' ? window.location.origin : ''
 
@@ -42,7 +44,6 @@ export default function HomeworkClient({ homework: initial, profileSlug }: Props
     })
     if (res.ok) {
       setHomework(hs => hs.map(h => h.id === id ? { ...h, is_active: !current } : h))
-      toast.success(!current ? 'Ödev aktifleştirildi' : 'Ödev pasifleştirildi')
     } else {
       toast.error('Güncelleme başarısız')
     }
@@ -57,6 +58,15 @@ export default function HomeworkClient({ homework: initial, profileSlug }: Props
     } else {
       toast.error('Silme başarısız')
     }
+  }
+
+  function handleHomeworkClick(hw: HomeworkWithCount) {
+    setSelectedHomework(hw)
+    // Ödev yanıtlarını çek
+    fetch(`/api/homework/responses?homework_id=${hw.id}`)
+      .then(res => res.json())
+      .then(data => setResponses(data))
+      .catch(() => setResponses([]))
   }
 
   async function handleAdd(e: React.FormEvent) {
@@ -107,7 +117,8 @@ export default function HomeworkClient({ homework: initial, profileSlug }: Props
           const count  = hw.responses?.[0]?.count ?? 0
           const hasQ   = hw.questions && hw.questions.length > 0
           return (
-            <div key={hw.id} className="card p-5">
+            <div key={hw.id} className="card p-5 cursor-pointer hover:border-sage transition-colors"
+                 onClick={() => handleHomeworkClick(hw)}>
               <div className="flex items-start justify-between mb-2">
                 <h4 className="text-sm font-semibold leading-snug flex-1 pr-2">{hw.title}</h4>
                 <span className={hw.is_active ? 'pill-green' : 'pill-orange'}>
@@ -126,13 +137,22 @@ export default function HomeworkClient({ homework: initial, profileSlug }: Props
                 {profileSlug}/odev/{hw.slug}
               </div>
               <div className="flex items-center gap-2 flex-wrap">
-                <button onClick={() => copyUrl(hw.slug)}
+                <button onClick={(e) => {
+                    e.stopPropagation()
+                    copyUrl(hw.slug)
+                  }}
                   className="btn-outline py-1 px-2.5 text-xs">📋 Kopyala</button>
-                <button onClick={() => toggleActive(hw.id, hw.is_active)}
+                <button onClick={(e) => {
+                    e.stopPropagation()
+                    toggleActive(hw.id, hw.is_active)
+                  }}
                   className="btn-outline py-1 px-2.5 text-xs">
                   {hw.is_active ? 'Pasifleştir' : 'Aktifleştir'}
                 </button>
-                <button onClick={() => deleteHw(hw.id)}
+                <button onClick={(e) => {
+                    e.stopPropagation()
+                    deleteHw(hw.id)
+                  }}
                   className="ml-auto text-xs text-red-400 hover:text-red-600 transition-colors">Sil</button>
               </div>
             </div>
@@ -203,6 +223,69 @@ export default function HomeworkClient({ homework: initial, profileSlug }: Props
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Ödev Yanıtları Modal */}
+      {selectedHomework && (
+        <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-4xl shadow-lg overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+              <div>
+                <h3 className="font-semibold text-lg">{selectedHomework.title}</h3>
+                <p className="text-sm text-muted mt-1">{responses.length} yanıt</p>
+              </div>
+              <button onClick={() => setSelectedHomework(null)} className="text-muted text-2xl leading-none hover:text-charcoal">×</button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto p-6">
+              {responses.length === 0 ? (
+                <div className="text-center py-12 text-muted text-sm">
+                  Henüz yanıt yok
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {responses.map((response, idx) => (
+                    <div key={response.id} className="border border-border rounded-lg p-4">
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="font-medium text-sm">
+                          {response.respondent_name || `Danışan ${idx + 1}`}
+                        </h4>
+                        <span className="text-xs text-muted">
+                          {new Date(response.completed_at).toLocaleDateString('tr-TR', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </span>
+                      </div>
+                      
+                      {selectedHomework.questions && selectedHomework.questions.length > 0 ? (
+                        <div className="space-y-3">
+                          {selectedHomework.questions.map((question: any, qIdx: number) => (
+                            <div key={qIdx} className="bg-cream/50 rounded p-3">
+                              <p className="text-sm font-medium mb-2">{qIdx + 1}. {question.text}</p>
+                              <p className="text-sm text-charcoal">
+                                {response.answers[qIdx]?.text || response.answers[qIdx] || 'Yanıtlanmamış'}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="bg-cream/50 rounded p-3">
+                          <p className="text-sm text-charcoal whitespace-pre-wrap">
+                            {response.answers[0]?.text || response.answers[0] || 'Metin yanıtı yok'}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

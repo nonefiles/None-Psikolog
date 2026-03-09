@@ -2,7 +2,53 @@
 // components/panel/TestResultsModal.tsx
 
 import { useState } from 'react'
-import { X, User, Calendar, MessageSquare, CheckCircle } from 'lucide-react'
+import { X, User, Calendar, MessageSquare, CheckCircle, Download } from 'lucide-react'
+import { Document, Page, Text, View, StyleSheet, pdf, Font } from '@react-pdf/renderer'
+
+// Register Turkish character supported font
+Font.register({
+  family: 'Roboto',
+  src: 'https://cdnjs.cloudflare.com/ajax/libs/ink/3.1.10/fonts/Roboto/roboto-light-webfont.ttf'
+})
+
+// PDF styles
+const styles = StyleSheet.create({
+  page: {
+    flexDirection: 'column',
+    backgroundColor: '#FFFFFF',
+    padding: 20,
+    fontFamily: 'Roboto',
+  },
+  title: {
+    fontSize: 18,
+    marginBottom: 15,
+    fontWeight: 'bold',
+    fontFamily: 'Roboto',
+  },
+  subtitle: {
+    fontSize: 12,
+    marginBottom: 8,
+    fontFamily: 'Roboto',
+  },
+  sectionTitle: {
+    fontSize: 14,
+    marginBottom: 12,
+    fontWeight: 'bold',
+    fontFamily: 'Roboto',
+  },
+  question: {
+    fontSize: 11,
+    marginBottom: 6,
+    fontWeight: 'bold',
+    fontFamily: 'Roboto',
+  },
+  answer: {
+    fontSize: 10,
+    marginBottom: 8,
+    marginLeft: 10,
+    fontFamily: 'Roboto',
+  },
+})
 
 interface TestResponse {
   id: string
@@ -27,53 +73,79 @@ interface Props {
     id: string
     title: string
     description: string | null
+    slug: string
     questions: TestQuestion[]
   }
   responses: TestResponse[]
+  profileSlug?: string
 }
 
-export default function TestResultsModal({ isOpen, onClose, test, responses }: Props) {
+// Helper function to get answer text
+const getAnswerText = (answer: any, question: TestQuestion) => {
+  if (question.type === 'multiple_choice' && answer.option_index !== undefined) {
+    return question.options[answer.option_index]?.label || 'Seçenek bulunamadı'
+  } else if (question.type === 'text' && answer.answer_text) {
+    return answer.answer_text
+  } else if (question.type === 'scale' && answer.answer_number !== undefined) {
+    return `${answer.answer_number}/10`
+  } else if (question.type === 'true_false' && answer.answer_boolean !== undefined) {
+    return answer.answer_boolean ? 'Doğru' : 'Yanlış'
+  }
+  return 'Cevap bulunamadı'
+}
+
+// PDF Document Component
+const TestPDFDocument = ({ test, response }: { 
+  test: Props['test'], 
+  response: TestResponse
+}) => (
+  <Document>
+    <Page size="A4" style={styles.page}>
+      <Text style={styles.title}>{test.title}</Text>
+      <Text style={styles.subtitle}>Kullanıcı: {response.respondent_name || 'Misafir'}</Text>
+      <Text style={styles.subtitle}>Tarih: {new Date(response.completed_at).toLocaleDateString('tr-TR')}</Text>
+      
+      <Text style={styles.sectionTitle}>Sorular ve Cevaplar:</Text>
+      
+      {test.questions.map((question, index) => {
+        const answer = response.answers.find(a => a.question_index === index)
+        return (
+          <View key={index} style={{ marginBottom: 8 }}>
+            <Text style={styles.question}>{index + 1}. {question.text}</Text>
+            <Text style={styles.answer}>Cevap: {answer ? getAnswerText(answer, question) : 'Cevaplanmamış'}</Text>
+          </View>
+        )
+      })}
+    </Page>
+  </Document>
+)
+
+export default function TestResultsModal({ isOpen, onClose, test, responses, profileSlug }: Props) {
   const [selectedResponse, setSelectedResponse] = useState<TestResponse | null>(null)
+
+  // PDF oluşturma fonksiyonu
+  const generatePDF = async () => {
+    if (!selectedResponse) return
+
+    const blob = await pdf(<TestPDFDocument 
+      test={test} 
+      response={selectedResponse} 
+    />).toBlob()
+    
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `${test.title}_${selectedResponse.respondent_name || 'misafir'}.pdf`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
 
   // Debug: Veri yapısını kontrol et
   console.log('TestResultsModal - test:', test)
   console.log('TestResultsModal - responses:', responses)
   console.log('TestResultsModal - test.questions:', test.questions)
 
-  // Debug için örnek veri
-  const mockResponses: TestResponse[] = [
-    {
-      id: 'mock-1',
-      test_id: test.id,
-      client_id: null,
-      respondent_name: 'Test Kullanıcısı',
-      answers: test.questions.map((q, index) => ({
-        question_index: index,
-        answer_text: q.type === 'text' ? 'Örnek cevap' : undefined,
-        answer_number: q.type === 'scale' ? 5 : undefined,
-        answer_boolean: q.type === 'true_false' ? true : undefined
-      })),
-      total_score: null,
-      completed_at: new Date().toISOString()
-    }
-  ]
-
-  const displayResponses = responses.length > 0 ? responses : mockResponses
-
   if (!isOpen) return null
-
-  const getAnswerText = (answer: any, question: TestQuestion) => {
-    if (question.type === 'multiple_choice' && answer.option_index !== undefined) {
-      return question.options[answer.option_index]?.label || 'Seçenek bulunamadı'
-    } else if (question.type === 'text' && answer.answer_text) {
-      return answer.answer_text
-    } else if (question.type === 'scale' && answer.answer_number !== undefined) {
-      return `${answer.answer_number}/10`
-    } else if (question.type === 'true_false' && answer.answer_boolean !== undefined) {
-      return answer.answer_boolean ? 'Doğru' : 'Yanlış'
-    }
-    return 'Cevap bulunamadı'
-  }
 
   return (
     <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -94,7 +166,7 @@ export default function TestResultsModal({ isOpen, onClose, test, responses }: P
 
         {/* Content */}
         <div className="p-6">
-          {displayResponses.length === 0 ? (
+          {responses.length === 0 ? (
             <div className="text-center py-8 text-sm text-muted">
               Bu test için henüz sonuç bulunmuyor.
             </div>
@@ -104,7 +176,7 @@ export default function TestResultsModal({ isOpen, onClose, test, responses }: P
               <div className="lg:col-span-1">
                 <h4 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">Dolduran Kişiler</h4>
                 <div className="space-y-2">
-                  {displayResponses.map((response) => (
+                  {responses.map((response) => (
                     <button
                       key={response.id}
                       onClick={() => setSelectedResponse(response)}
@@ -153,9 +225,19 @@ export default function TestResultsModal({ isOpen, onClose, test, responses }: P
 
                     {/* Questions and Answers */}
                     <div>
-                      <h4 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">
-                        Sorular ve Cevaplar
-                      </h4>
+                      <div className="flex items-center justify-between mb-3">
+                        <h4 className="text-sm font-semibold text-muted uppercase tracking-wide">
+                          Sorular ve Cevaplar
+                        </h4>
+                        <button
+                          onClick={generatePDF}
+                          disabled={!selectedResponse}
+                          className="btn-outline py-1 px-3 text-xs flex items-center gap-1 disabled:opacity-50"
+                        >
+                          <Download className="w-3 h-3" />
+                          PDF İndir
+                        </button>
+                      </div>
                       <div className="space-y-4">
                         {test.questions.map((question, index) => {
                           const answer = selectedResponse.answers.find(a => a.question_index === index)

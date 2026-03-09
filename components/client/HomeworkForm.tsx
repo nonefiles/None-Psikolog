@@ -18,6 +18,10 @@ export default function HomeworkForm({ homework }: Props) {
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()
+    if (!name.trim()) {
+      alert('Lütfen adınızı girin.')
+      return
+    }
     setLoading(true)
     try {
       await fetch('/api/homework/responses', {
@@ -25,7 +29,7 @@ export default function HomeworkForm({ homework }: Props) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           homework_id: homework.id,
-          respondent_name: name || null,
+          respondent_name: name,
           answers: hasQuestions
             ? homework.questions.map((q, i) => ({ question_index: i, answer_text: answers[i] }))
             : [],
@@ -60,8 +64,8 @@ export default function HomeworkForm({ homework }: Props) {
 
       {/* İsim — tek seferlik */}
       <div className="card p-5">
-        <label className="label">Adınız (opsiyonel)</label>
-        <input className="input" placeholder="Adınız" value={name}
+        <label className="label">Adınız *</label>
+        <input className="input" placeholder="Adınız" value={name} required
           onChange={e => setName(e.target.value)} />
       </div>
 

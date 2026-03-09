@@ -1,6 +1,7 @@
 'use client'
 // components/panel/LinksClient.tsx
 
+import { useState, useEffect } from 'react'
 import toast from 'react-hot-toast'
 
 interface Item { id: string; title: string; slug: string; is_active: boolean }
@@ -40,11 +41,49 @@ function LinkCard({ icon, title, url, type, onCopy }: {
 }
 
 export default function LinksClient({ tests, homework, profileSlug }: Props) {
-  const origin = typeof window !== 'undefined' ? window.location.origin : 'https://psikopanel.tr'
+  const [origin, setOrigin] = useState('')
+  const [isClient, setIsClient] = useState(false)
+
+  useEffect(() => {
+    setIsClient(true)
+    setOrigin(window.location.origin)
+  }, [])
 
   function copy(url: string) {
     navigator.clipboard.writeText(url)
     toast.success('Link kopyalandı!')
+  }
+
+  // Client-side render edilmediyse gösterme
+  if (!isClient) {
+    return (
+      <div className="p-6">
+        <div className="grid grid-cols-2 gap-6">
+          <div>
+            <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-4">Test Linkleri</h3>
+            <div className="space-y-3">
+              {tests.map(t => (
+                <div key={t.id} className="card p-5 animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div>
+            <h3 className="text-xs font-bold text-muted uppercase tracking-wider mb-4">Ödev Linkleri</h3>
+            <div className="space-y-3">
+              {homework.map(hw => (
+                <div key={hw.id} className="card p-5 animate-pulse">
+                  <div className="h-4 bg-gray-200 rounded w-3/4 mb-2"></div>
+                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
   }
 
   return (

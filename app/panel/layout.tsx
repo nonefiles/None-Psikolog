@@ -15,8 +15,8 @@ export default async function PanelLayout({ children }: { children: React.ReactN
     .eq('id', user.id)
     .single()
 
-  // Profil yoksa profil kurulum sayfasına yönlendir
-  if (!profile) redirect('/auth/setup')
+  // Profil yoksa login sayfasına yönlendir
+  if (!profile) redirect('/auth/login')
 
   return (
     <div className="flex min-h-screen">

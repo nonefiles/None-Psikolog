@@ -1,6 +1,15 @@
 // app/api/finance/route.ts
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
+
+const financeEntrySchema = z.object({
+  type: z.enum(['income', 'expense']),
+  amount: z.string().min(1, 'Tutar zorunlu'),
+  description: z.string().min(1, 'Açıklama zorunlu'),
+  entry_date: z.string().optional(),
+  appointment_id: z.string().uuid().nullable().optional()
+})
 
 export async function GET(req: Request) {
   const supabase = await createClient()
@@ -33,11 +42,16 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { type, amount, description, entry_date, appointment_id } = body
-
-  if (!type || !amount || !description) {
-    return NextResponse.json({ error: 'Zorunlu alanlar eksik' }, { status: 400 })
+  
+  // Validate with Zod
+  const validationResult = financeEntrySchema.safeParse(body)
+  if (!validationResult.success) {
+    return NextResponse.json({ 
+      error: 'Geçersiz veri: ' + validationResult.error.issues.map((e: any) => e.message).join(', ') 
+    }, { status: 400 })
   }
+
+  const { type, amount, description, entry_date, appointment_id } = validationResult.data
 
   const { data, error } = await supabase
     .from('finance_entries')

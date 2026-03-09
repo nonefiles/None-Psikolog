@@ -26,7 +26,7 @@ export default function TestsClient({ tests: initial, profileSlug }: Props) {
   const [tests, setTests] = useState(initial)
   const [addOpen, setAddOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [form, setForm] = useState({ title: '', slug: '', description: '', creationType: 'manual' })
+  const [form, setForm] = useState({ title: '', slug: '', description: '', creationType: 'quizapp', jsonContent: '' })
   const [isClient, setIsClient] = useState(false)
   const [quizAppOpen, setQuizAppOpen] = useState(false)
   const [selectedTestId, setSelectedTestId] = useState('')
@@ -106,7 +106,7 @@ export default function TestsClient({ tests: initial, profileSlug }: Props) {
         setSelectedTestId(newTest.id)
         setQuizAppOpen(true)
         setAddOpen(false)
-        setForm({ title: '', slug: '', description: '', creationType: 'manual' })
+        setForm({ title: '', slug: '', description: '', creationType: 'quizapp', jsonContent: '' })
         toast.success('Test oluşturuldu! Şimdi soruları ekleyin.')
       } else if (form.creationType === 'json') {
         // JSON formatında test oluştur
@@ -131,7 +131,7 @@ export default function TestsClient({ tests: initial, profileSlug }: Props) {
         const newTest: TestWithCount = await res.json()
         setTests(t => [newTest, ...t])
         setAddOpen(false)
-        setForm({ title: '', slug: '', description: '', creationType: 'manual' })
+        setForm({ title: '', slug: '', description: '', creationType: 'quizapp', jsonContent: '' })
         toast.success('Test oluşturuldu!')
       } else {
         // Manuel test oluştur
@@ -144,7 +144,7 @@ export default function TestsClient({ tests: initial, profileSlug }: Props) {
         const newTest: TestWithCount = await res.json()
         setTests(t => [newTest, ...t])
         setAddOpen(false)
-        setForm({ title: '', slug: '', description: '', creationType: 'manual' })
+        setForm({ title: '', slug: '', description: '', creationType: 'quizapp', jsonContent: '' })
         toast.success('Test oluşturuldu!')
       }
     } catch (err: unknown) {
@@ -231,7 +231,6 @@ export default function TestsClient({ tests: initial, profileSlug }: Props) {
       })
       
       if (res.ok) {
-        toast.success(`Test ${isActive ? 'aktif' : 'pasif'} edildi!`)
         setTests(tests.map(t => 
           t.id === testId ? { ...t, is_active: isActive } : t
         ))
@@ -258,82 +257,45 @@ export default function TestsClient({ tests: initial, profileSlug }: Props) {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {tests.map(t => (
-          <div
-            key={t.id}
-            onClick={() => handleTestClick(t)}
-            className="card p-5 text-left hover:border-sage transition-colors cursor-pointer group"
-          >
-            <div className="flex items-start justify-between mb-3">
-              <div>
-                <h3 className="font-semibold text-charcoal group-hover:text-sage transition-colors">{t.title}</h3>
-                {t.description && <p className="text-xs text-muted mt-1">{t.description}</p>}
-              </div>
-              <div className="flex items-center gap-2">
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={t.is_active}
-                    onChange={(e) => {
-                      e.stopPropagation()
-                      handleToggleActive(t.id, e.target.checked)
-                    }}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-sage"></div>
-                </label>
-                <span className={`text-xs font-medium ${t.is_active ? 'text-sage' : 'text-gray-600'}`}>
+        {tests.map(t => {
+          const count = t.responses?.[0]?.count || 0
+          return (
+            <div key={t.id} className="card p-5 cursor-pointer hover:border-sage transition-colors"
+                 onClick={() => handleTestClick(t)}>
+              <div className="flex items-start justify-between mb-2">
+                <h4 className="text-sm font-semibold leading-snug flex-1 pr-2">{t.title}</h4>
+                <span className={t.is_active ? 'pill-green' : 'pill-orange'}>
                   {t.is_active ? 'Aktif' : 'Pasif'}
                 </span>
-                {/* Sil butonu buraya, flex container içine alındı */}
-                <button
-                  onClick={(e) => {
+              </div>
+              <p className="text-xs text-muted mb-1">
+                {t.questions.length} soru · {count} yanıt
+              </p>
+              <div className="bg-cream rounded-lg px-3 py-1.5 font-mono text-xs text-sage mb-3 truncate">
+                {profileSlug}/test/{t.slug}
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={(e) => {
+                    e.stopPropagation()
+                    copyUrl(t.slug)
+                  }}
+                  className="btn-outline py-1 px-2.5 text-xs">📋 Kopyala</button>
+                <button onClick={(e) => {
+                    e.stopPropagation()
+                    handleToggleActive(t.id, !t.is_active)
+                  }}
+                  className="btn-outline py-1 px-2.5 text-xs">
+                  {t.is_active ? 'Pasifleştir' : 'Aktifleştir'}
+                </button>
+                <button onClick={(e) => {
                     e.stopPropagation()
                     handleDeleteTest(t.id)
                   }}
-                  className="text-red-500 hover:text-red-700 transition-colors p-1 rounded hover:bg-red-50"
-                  title="Testi Sil"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                  </svg>
-                </button>
+                  className="ml-auto text-xs text-red-400 hover:text-red-600 transition-colors">Sil</button>
               </div>
             </div>
-
-            <div className="flex items-center justify-between text-xs text-muted">
-              <div className="flex items-center gap-1">
-                <span>{t.questions.length}</span>
-                <span>soru</span>
-              </div>
-              <div className="flex items-center gap-1">
-                <span>{t.responses?.[0]?.count || 0}</span>
-                <span>yanıt</span>
-              </div>
-            </div>
-
-            <div className="mt-3 flex items-center gap-2">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  copyUrl(t.slug)
-                }}
-                className="btn-outline btn-xs flex-1"
-              >
-                Kopyala
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  window.open(`/${profileSlug}/test/${t.slug}`, '_blank')
-                }}
-                className="btn-outline btn-xs flex-1"
-              >
-                Test Et
-              </button>
-            </div>
-          </div>
-        ))}
+          )
+        })}
         <button onClick={() => setAddOpen(true)}
           className="border-2 border-dashed border-border rounded-xl p-5 flex flex-col items-center justify-center gap-2 text-muted hover:border-sage hover:text-sage transition-colors min-h-[160px]">
           <span className="text-3xl">+</span>
@@ -342,13 +304,14 @@ export default function TestsClient({ tests: initial, profileSlug }: Props) {
       </div>
 
       {addOpen && isClient && (
-        <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-lg overflow-hidden">
-            <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+        <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-lg overflow-hidden max-h-[90vh] flex flex-col">
+            <div className="px-6 py-4 border-b border-border flex items-center justify-between flex-shrink-0">
               <h3 className="font-semibold">Yeni Test Oluştur</h3>
               <button onClick={() => setAddOpen(false)} className="text-muted text-xl leading-none hover:text-charcoal">×</button>
             </div>
-            <form onSubmit={handleAdd} className="p-6 space-y-4">
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              <form onSubmit={handleAdd} className="space-y-4">
               <div>
                 <label className="label">Test Adı *</label>
                 <input className="input" required placeholder="ör. Beck Depresyon Envanteri"
@@ -373,20 +336,6 @@ export default function TestsClient({ tests: initial, profileSlug }: Props) {
               <div>
                 <label className="label">Oluşturma Türü *</label>
                 <div className="space-y-2">
-                  <label className="flex items-center gap-3 p-3 border border-border rounded-lg cursor-pointer hover:bg-cream/50 transition-colors">
-                    <input 
-                      type="radio" 
-                      name="creationType" 
-                      value="manual" 
-                      checked={form.creationType === 'manual'}
-                      onChange={e => setForm(f => ({ ...f, creationType: e.target.value }))}
-                      className="w-4 h-4 text-sage-600 focus:ring-sage-500"
-                    />
-                    <div>
-                      <p className="font-medium text-sm">Manuel Oluştur</p>
-                      <p className="text-xs text-muted">Soru ekleme ve ayarlama manuel olarak yapılır</p>
-                    </div>
-                  </label>
                   <label className="flex items-center gap-3 p-3 border border-sage rounded-lg cursor-pointer hover:bg-sage-pale/50 transition-colors">
                     <input 
                       type="radio" 
@@ -417,6 +366,30 @@ export default function TestsClient({ tests: initial, profileSlug }: Props) {
                   </label>
                 </div>
               </div>
+
+              {/* JSON Content Area */}
+              {form.creationType === 'json' && (
+                <div>
+                  <label className="label">JSON İçerik *</label>
+                  <textarea 
+                    className="input font-mono text-xs min-h-[200px] resize-y"
+                    placeholder='[
+  {
+    "text": "Aşağıdaki seçeneklerden en uygun olanı işaretleyin:",
+    "type": "multiple_choice",
+    "options": ["Seçenek A", "Seçenek B", "Seçenek C", "Seçenek D"],
+    "correct": 0
+  }
+]'
+                    value={form.jsonContent}
+                    onChange={e => setForm(f => ({ ...f, jsonContent: e.target.value }))}
+                    required
+                  />
+                  <p className="text-xs text-muted mt-1">
+                    Test sorularını JSON formatında yapıştırın. Her soru bir objeye karşılık gelir.
+                  </p>
+                </div>
+              )}
               
               <div className="flex gap-3 pt-1">
                 <button type="button" onClick={() => setAddOpen(false)} className="btn-outline flex-1 justify-center">İptal</button>
@@ -424,7 +397,8 @@ export default function TestsClient({ tests: initial, profileSlug }: Props) {
                   {loading ? 'Oluşturuluyor…' : 'Oluştur'}
                 </button>
               </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}
@@ -452,6 +426,7 @@ export default function TestsClient({ tests: initial, profileSlug }: Props) {
           }}
           test={selectedTest}
           responses={testResponses}
+          profileSlug={profileSlug}
         />
       )}
     </div>

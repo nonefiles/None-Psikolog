@@ -1,6 +1,24 @@
 // app/api/homework/route.ts
 import { createClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
+
+const homeworkCreateSchema = z.object({
+  slug: z.string().min(1, 'Slug zorunlu'),
+  title: z.string().min(1, 'Başlık zorunlu'),
+  description: z.string().optional(),
+  questions: z.array(z.any()).optional(),
+  due_date: z.string().nullable().optional()
+})
+
+const homeworkUpdateSchema = z.object({
+  slug: z.string().optional(),
+  title: z.string().optional(),
+  description: z.string().optional(),
+  questions: z.array(z.any()).optional(),
+  due_date: z.string().nullable().optional(),
+  is_active: z.boolean().optional()
+})
 
 export async function GET() {
   const supabase = await createClient()
@@ -23,9 +41,16 @@ export async function POST(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { slug, title, description, questions, due_date } = body
+  
+  // Validate with Zod
+  const validationResult = homeworkCreateSchema.safeParse(body)
+  if (!validationResult.success) {
+    return NextResponse.json({ 
+      error: 'Geçersiz veri: ' + validationResult.error.issues.map((e: any) => e.message).join(', ') 
+    }, { status: 400 })
+  }
 
-  if (!slug || !title) return NextResponse.json({ error: 'Slug ve başlık zorunlu' }, { status: 400 })
+  const { slug, title, description, questions, due_date } = validationResult.data
 
   const { data, error } = await supabase
     .from('homework')
@@ -53,8 +78,18 @@ export async function PATCH(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { id, ...updates } = body
+  const { id } = body
   if (!id) return NextResponse.json({ error: 'ID zorunlu' }, { status: 400 })
+
+  // Validate with Zod
+  const validationResult = homeworkUpdateSchema.safeParse(body)
+  if (!validationResult.success) {
+    return NextResponse.json({ 
+      error: 'Geçersiz veri: ' + validationResult.error.issues.map((e: any) => e.message).join(', ') 
+    }, { status: 400 })
+  }
+
+  const updates = validationResult.data
 
   const { data, error } = await supabase
     .from('homework')

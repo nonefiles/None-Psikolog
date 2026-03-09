@@ -1,6 +1,44 @@
 // app/api/appointments/route.ts
 import { createClient, createServiceClient } from '@/lib/supabase/server'
 import { NextResponse } from 'next/server'
+import { appointmentRateLimit, fallbackAppointmentRateLimit, checkRateLimit } from '@/lib/upstash-rate-limit'
+import { z } from 'zod'
+
+const publicAppointmentSchema = z.object({
+  psychologist_id: z.string().uuid("Geçersiz psikolog ID'si"),
+  guest_name: z.string().min(1, "Danışan adı zorunlu"),
+  guest_phone: z.string().min(1, "Telefon numarası zorunlu"),
+  guest_email: z.string().email().optional(),
+  guest_note: z.string().optional(),
+  session_type: z.string().optional(),
+  starts_at: z.string().optional(),
+  duration_min: z.number().min(1, "Süre en az 1 dakika olmalıdır").max(300, "Süre en fazla 300 dakika olabilir").optional(),
+  notes: z.string().optional()
+})
+
+const panelAppointmentSchema = z.object({
+  _panel_add: z.boolean(),
+  guest_name: z.string().optional(),
+  starts_at: z.string().min(1, "Tarih zorunlu"),
+  client_id: z.string().uuid().optional(),
+  guest_phone: z.string().optional(),
+  guest_email: z.string().email().optional(),
+  guest_note: z.string().optional(),
+  session_type: z.string().optional(),
+  duration_min: z.number().min(1, "Süre en az 1 dakika olmalıdır").max(300, "Süre en fazla 300 dakika olabilir").optional(),
+  notes: z.string().optional()
+}).refine((data) => data.client_id || data.guest_name, {
+  message: "Ya kayıtlı danışan seçilmeli ya da misafir adı girilmelidir",
+  path: ["client_id"]
+})
+
+const appointmentUpdateSchema = z.object({
+  id: z.string().uuid(),
+  status: z.enum(['pending', 'confirmed', 'cancelled', 'completed']).optional(),
+  notes: z.string().optional(),
+  price: z.number().min(0, "Fiyat 0'dan küçük olamaz").optional(),
+  client_id: z.string().uuid().nullable().optional()
+})
 
 export async function GET(req: Request) {
   const supabase = await createClient()
@@ -27,26 +65,40 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   const body = await req.json()
-  const {
-    psychologist_id: bodyPsychologistId,
-    _panel_add,
-    guest_name, guest_phone, guest_email, guest_note,
-    session_type, starts_at, duration_min, notes,
-  } = body
-
+  
+  // Apply rate limiting for ALL requests to prevent bypass
+  const rateLimitResult = await checkRateLimit(req, appointmentRateLimit, fallbackAppointmentRateLimit)
+  if (!rateLimitResult.success) {
+    const response = NextResponse.json({ error: rateLimitResult.error }, { status: 429 })
+    if (rateLimitResult.headers) {
+      Object.entries(rateLimitResult.headers).forEach(([key, value]) => {
+        response.headers.set(key, value)
+      })
+    }
+    return response
+  }
+  
   // Panel tarafından ekleme (authenticated)
-  if (_panel_add) {
+  if (body._panel_add) {
+    // Validate with panel schema
+    const validationResult = panelAppointmentSchema.safeParse(body)
+    if (!validationResult.success) {
+      return NextResponse.json({ 
+        error: 'Geçersiz veri: ' + validationResult.error.issues.map((e: any) => e.message).join(', ') 
+      }, { status: 400 })
+    }
+
+    const { guest_name, client_id, guest_phone, guest_email, guest_note, session_type, starts_at, duration_min, notes } = validationResult.data
+
     const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-    if (!guest_name) return NextResponse.json({ error: 'Danışan adı zorunlu' }, { status: 400 })
-    if (!starts_at)  return NextResponse.json({ error: 'Tarih zorunlu' }, { status: 400 })
 
     const { data, error } = await supabase
       .from('appointments')
       .insert({
         psychologist_id: user.id,
+        client_id: client_id ?? null,
         guest_name,
         guest_phone:  guest_phone  ?? null,
         guest_email:  guest_email  ?? null,
@@ -65,15 +117,21 @@ export async function POST(req: Request) {
   }
 
   // Herkese açık randevu talebi (service role)
-  if (!bodyPsychologistId || !guest_name || !guest_phone) {
-    return NextResponse.json({ error: 'Zorunlu alanlar eksik (psikolog, ad, telefon)' }, { status: 400 })
+  // Validate with public schema
+  const validationResult = publicAppointmentSchema.safeParse(body)
+  if (!validationResult.success) {
+    return NextResponse.json({ 
+      error: 'Geçersiz veri: ' + validationResult.error.issues.map((e: any) => e.message).join(', ') 
+    }, { status: 400 })
   }
+
+  const { psychologist_id, guest_name, guest_phone, guest_email, guest_note, session_type, starts_at, duration_min } = validationResult.data
 
   const supabase = await createServiceClient()
   const { data, error } = await supabase
     .from('appointments')
     .insert({
-      psychologist_id: bodyPsychologistId,
+      psychologist_id,
       guest_name,
       guest_phone,
       guest_email:  guest_email  || null,
@@ -96,8 +154,16 @@ export async function PATCH(req: Request) {
   if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   const body = await req.json()
-  const { id, status, notes, price, client_id } = body
-  if (!id) return NextResponse.json({ error: 'ID zorunlu' }, { status: 400 })
+  
+  // Validate with Zod
+  const validationResult = appointmentUpdateSchema.safeParse(body)
+  if (!validationResult.success) {
+    return NextResponse.json({ 
+      error: 'Geçersiz veri: ' + validationResult.error.issues.map((e: any) => e.message).join(', ') 
+    }, { status: 400 })
+  }
+
+  const { id, status, notes, price, client_id } = validationResult.data
 
   const updates: Record<string, unknown> = {}
   if (status !== undefined) updates.status = status

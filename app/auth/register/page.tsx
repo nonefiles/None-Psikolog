@@ -1,7 +1,7 @@
 'use client'
 // app/auth/register/page.tsx
 // Trigger otomatik profiles satırı oluşturur.
-// Register sadece signUp yapar, profil bilgileri /auth/setup'ta tamamlanır.
+// Register sadece signUp yapar, profil bilgileri /auth/login'da tamamlanır.
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -37,10 +37,10 @@ export default function RegisterPage() {
       if (error) throw error
 
       if (data.session) {
-        // Email doğrulama kapalı — direkt setup'a yönlendir
+        // Email doğrulama kapalı — direkt login'e yönlendir
         toast.success('Hesap oluşturuldu!')
         router.refresh()
-        router.push('/auth/setup')
+        router.push('/auth/login')
       } else {
         // Email doğrulama açık
         setDone(true)
