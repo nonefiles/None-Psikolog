@@ -151,9 +151,9 @@ export default function TestResultsModal({ isOpen, onClose, test, responses, pro
     <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-xl">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+        <div className="px-4 md:px-6 py-4 border-b border-border flex items-center justify-between">
           <div>
-            <h3 className="font-semibold">{test.title}</h3>
+            <h3 className="font-semibold text-sm md:text-base">{test.title}</h3>
             <p className="text-sm text-muted">Test Sonuçları</p>
           </div>
           <button 
@@ -165,13 +165,13 @@ export default function TestResultsModal({ isOpen, onClose, test, responses, pro
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-4 md:p-6">
           {responses.length === 0 ? (
             <div className="text-center py-8 text-sm text-muted">
               Bu test için henüz sonuç bulunmuyor.
             </div>
           ) : (
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
               {/* Responses List */}
               <div className="lg:col-span-1">
                 <h4 className="text-sm font-semibold text-muted uppercase tracking-wide mb-3">Dolduran Kişiler</h4>
@@ -188,7 +188,7 @@ export default function TestResultsModal({ isOpen, onClose, test, responses, pro
                     >
                       <div className="flex items-center gap-2 mb-1">
                         <User className="w-4 h-4 text-muted" />
-                        <span className="font-medium text-sm">
+                        <span className="font-medium text-sm truncate">
                           {response.respondent_name || 'Misafir'}
                         </span>
                       </div>
@@ -206,16 +206,16 @@ export default function TestResultsModal({ isOpen, onClose, test, responses, pro
                 {selectedResponse ? (
                   <div className="space-y-6">
                     {/* Response Header */}
-                    <div className="bg-gray-50 rounded-lg p-4">
+                    <div className="bg-gray-50 rounded-lg p-3 md:p-4">
                       <div className="flex items-center gap-3 mb-2">
-                        <div className="w-10 h-10 rounded-full bg-sage-100 flex items-center justify-center">
-                          <User className="w-5 h-5 text-sage" />
+                        <div className="w-8 h-8 md:w-10 md:h-10 rounded-full bg-sage-100 flex items-center justify-center">
+                          <User className="w-4 h-4 md:w-5 md:h-5 text-sage" />
                         </div>
-                        <div>
-                          <h5 className="font-semibold">
+                        <div className="min-w-0 flex-1">
+                          <h5 className="font-semibold text-sm md:text-base truncate">
                             {selectedResponse.respondent_name || 'Misafir'}
                           </h5>
-                          <p className="text-sm text-muted">
+                          <p className="text-xs md:text-sm text-muted">
                             {new Date(selectedResponse.completed_at).toLocaleDateString('tr-TR')} · 
                             {new Date(selectedResponse.completed_at).toLocaleTimeString('tr-TR')}
                           </p>
@@ -242,17 +242,17 @@ export default function TestResultsModal({ isOpen, onClose, test, responses, pro
                         {test.questions.map((question, index) => {
                           const answer = selectedResponse.answers.find(a => a.question_index === index)
                           return (
-                            <div key={index} className="border border-border rounded-lg p-4">
+                            <div key={index} className="border border-border rounded-lg p-3 md:p-4">
                               <div className="flex items-start gap-3">
                                 <div className="w-6 h-6 rounded-full bg-sage-100 flex items-center justify-center flex-shrink-0 mt-0.5">
                                   <span className="text-xs font-bold text-sage">{index + 1}</span>
                                 </div>
-                                <div className="flex-1">
-                                  <p className="font-medium text-sm mb-2">{question.text}</p>
-                                  <div className="bg-gray-50 rounded-lg p-3">
+                                <div className="flex-1 min-w-0">
+                                  <p className="font-medium text-sm mb-2 break-words">{question.text}</p>
+                                  <div className="bg-gray-50 rounded-lg p-2 md:p-3">
                                     <div className="flex items-center gap-2">
-                                      <MessageSquare className="w-4 h-4 text-muted" />
-                                      <span className="text-sm">
+                                      <MessageSquare className="w-4 h-4 text-muted flex-shrink-0" />
+                                      <span className="text-sm break-words">
                                         {answer ? getAnswerText(answer, question) : 'Cevaplanmamış'}
                                       </span>
                                     </div>

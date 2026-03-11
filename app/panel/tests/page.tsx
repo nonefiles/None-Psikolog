@@ -19,8 +19,8 @@ export default async function TestsPage() {
 
   return (
     <>
-      <header className="bg-white border-b border-border px-8 py-4 sticky top-0 z-40">
-        <h2 className="font-serif text-xl">Test Yönetimi</h2>
+      <header className="bg-white border-b border-border px-4 md:px-8 py-4 sticky top-0 z-40">
+        <h2 className="font-serif text-xl md:text-2xl">Test Yönetimi</h2>
       </header>
       <TestsClient tests={tests ?? []} profileSlug={profile?.slug ?? ''} />
     </>

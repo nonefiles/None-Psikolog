@@ -19,9 +19,9 @@ export default async function PanelLayout({ children }: { children: React.ReactN
   if (!profile) redirect('/auth/login')
 
   return (
-    <div className="flex min-h-screen">
+    <div className="flex min-h-screen relative">
       <Sidebar profile={profile} />
-      <div className="ml-60 flex-1 flex flex-col min-h-screen">
+      <div className="flex-1 flex flex-col min-h-screen md:ml-60">
         {children}
       </div>
     </div>

@@ -65,7 +65,7 @@ export default function HomeworkForm({ homework }: Props) {
       {/* İsim — tek seferlik */}
       <div className="card p-5">
         <label className="label">Adınız *</label>
-        <input className="input" placeholder="Adınız" value={name} required
+        <input className="input w-full" placeholder="Adınız" value={name} required
           onChange={e => setName(e.target.value)} />
       </div>
 
@@ -74,7 +74,7 @@ export default function HomeworkForm({ homework }: Props) {
           <p className="text-xs font-bold text-accent uppercase tracking-wide mb-2">Soru {i + 1}</p>
           <p className="text-sm font-medium mb-3 leading-relaxed">{q.text}</p>
           <textarea
-            className="input min-h-[80px] resize-y"
+            className="input w-full min-h-[80px] resize-y"
             placeholder="Cevabınızı buraya yazın…"
             value={answers[i]}
             onChange={e => {

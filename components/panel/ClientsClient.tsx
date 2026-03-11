@@ -78,12 +78,12 @@ export default function ClientsClient({ clients: initial, profileSlug }: Props) 
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       {/* Toolbar */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 mb-5">
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
           <input
-            className="input w-64"
+            className="input w-full sm:w-64"
             placeholder="İsim, telefon veya e-posta ile ara…"
             value={search}
             onChange={e => setSearch(e.target.value)}
@@ -97,22 +97,22 @@ export default function ClientsClient({ clients: initial, profileSlug }: Props) 
             </button>
           )}
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center justify-between md:justify-end gap-3">
           <span className="text-sm text-muted">{filtered.length} danışan</span>
           <button onClick={() => setAddOpen(true)} className="btn-primary">+ Yeni Danışan</button>
         </div>
       </div>
 
       {/* Booking link banner */}
-      <div className="mb-5 bg-sage-pale border border-sage-l rounded-xl px-5 py-3.5 flex items-center justify-between">
+      <div className="mb-5 bg-sage-pale border border-sage-l rounded-xl px-4 md:px-5 py-3.5 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <p className="text-sm font-semibold text-sage">Randevu Linkiniz</p>
-          <p className="text-sm font-mono mt-0.5">psikopanel.tr/{profileSlug}/booking</p>
+          <p className="text-sm font-mono mt-0.5 break-all">psikopanel.tr/{profileSlug}/booking</p>
           <p className="text-xs text-muted mt-0.5">Bu linki danışanlarınızla paylaşın — üye olmadan randevu alabilirler.</p>
         </div>
         <button
           onClick={() => { navigator.clipboard.writeText(`${window.location.origin}/${profileSlug}/booking`); toast.success('Kopyalandı!') }}
-          className="btn-outline btn-sm flex-shrink-0">
+          className="btn-outline btn-sm flex-shrink-0 w-full md:w-auto">
           📋 Kopyala
         </button>
       </div>
@@ -120,28 +120,28 @@ export default function ClientsClient({ clients: initial, profileSlug }: Props) 
       {/* Table */}
       <div className="card">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse">
+          <table className="w-full border-collapse min-w-[600px]">
             <thead>
               <tr className="bg-cream">
-                <th className="px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border">Ad Soyad</th>
-                <th className="px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border">Telefon</th>
-                <th className="px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border">E-posta</th>
-                <th className="px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border">Seans</th>
-                <th className="px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border">Durum</th>
-                <th className="px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border">Kayıt</th>
-              <th className="px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border">İşlem</th>
+                <th className="px-3 md:px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border">Ad Soyad</th>
+                <th className="px-3 md:px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border hidden sm:table-cell">Telefon</th>
+                <th className="px-3 md:px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border hidden md:table-cell">E-posta</th>
+                <th className="px-3 md:px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border hidden lg:table-cell">Seans</th>
+                <th className="px-3 md:px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border">Durum</th>
+                <th className="px-3 md:px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border hidden md:table-cell">Kayıt</th>
+              <th className="px-3 md:px-5 py-3 text-left text-xs font-bold text-muted uppercase tracking-wide border-b border-border">İşlem</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-5 py-12 text-center text-sm text-muted">
+                  <td colSpan={7} className="px-3 md:px-5 py-12 text-center text-sm text-muted">
                     {search ? 'Sonuç bulunamadı' : 'Henüz danışan yok'}
                   </td>
                 </tr>
               ) : filtered.map(c => (
                 <tr key={c.id} className="border-b border-border/60 last:border-0 hover:bg-cream/50 transition-colors">
-                  <td className="px-5 py-3.5 font-medium text-sm">
+                  <td className="px-3 md:px-5 py-3.5 font-medium text-sm">
                     <button 
                       onClick={() => setSelectedClient(c)}
                       className="text-sage-600 hover:text-sage-800 hover:underline transition-colors text-left"
@@ -149,22 +149,22 @@ export default function ClientsClient({ clients: initial, profileSlug }: Props) 
                       {c.full_name}
                     </button>
                   </td>
-                  <td className="px-5 py-3.5 text-sm text-muted">{c.phone ?? '—'}</td>
-                  <td className="px-5 py-3.5 text-sm text-muted">{c.email ?? '—'}</td>
-                  <td className="px-5 py-3.5 text-sm">{c.session_type ?? '—'}</td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-3 md:px-5 py-3.5 text-sm text-muted hidden sm:table-cell">{c.phone ?? '—'}</td>
+                  <td className="px-3 md:px-5 py-3.5 text-sm text-muted hidden md:table-cell">{c.email ?? '—'}</td>
+                  <td className="px-3 md:px-5 py-3.5 text-sm hidden lg:table-cell">{c.session_type ?? '—'}</td>
+                  <td className="px-3 md:px-5 py-3.5">
                     <span className={STATUS[c.status]?.cls ?? 'pill-sage'}>
                       {STATUS[c.status]?.text ?? c.status}
                     </span>
                   </td>
-                  <td className="px-5 py-3.5 text-xs text-muted">
+                  <td className="px-3 md:px-5 py-3.5 text-xs text-muted hidden md:table-cell">
                     {new Date(c.created_at).toLocaleDateString('tr-TR', {
                       day: '2-digit',
                       month: '2-digit', 
                       year: 'numeric'
                     })}
                   </td>
-                  <td className="px-5 py-3.5">
+                  <td className="px-3 md:px-5 py-3.5">
                     <button
                       onClick={() => setDeleteConfirm(c.id)}
                       className="btn-outline py-1 px-2 text-xs text-red-600 border-red-200 hover:bg-red-50">
@@ -181,7 +181,7 @@ export default function ClientsClient({ clients: initial, profileSlug }: Props) 
       {/* Add modal */}
       {addOpen && (
         <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-lg overflow-hidden">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-lg overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold">Yeni Danışan</h3>
               <button onClick={() => setAddOpen(false)} className="text-muted text-xl leading-none">×</button>
@@ -189,24 +189,24 @@ export default function ClientsClient({ clients: initial, profileSlug }: Props) 
             <form onSubmit={handleAdd} className="p-6 space-y-4">
               <div>
                 <label className="label">Ad Soyad *</label>
-                <input className="input" required placeholder="Ayşe Yılmaz"
+                <input className="input w-full" required placeholder="Ayşe Yılmaz"
                   value={form.full_name} onChange={e => setForm(f => ({ ...f, full_name: e.target.value }))} />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="label">Telefon</label>
-                  <input className="input" placeholder="05XX XXX XX XX"
+                  <input className="input w-full" placeholder="05XX XXX XX XX"
                     value={form.phone} onChange={e => setForm(f => ({ ...f, phone: e.target.value }))} />
                 </div>
                 <div>
                   <label className="label">E-posta</label>
-                  <input className="input" type="email" placeholder="email@ornek.com"
+                  <input className="input w-full" type="email" placeholder="email@ornek.com"
                     value={form.email} onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
                 </div>
               </div>
               <div>
                 <label className="label">Seans Türü</label>
-                <select className="input" value={form.session_type}
+                <select className="input w-full" value={form.session_type}
                   onChange={e => setForm(f => ({ ...f, session_type: e.target.value }))}>
                   <option>Bireysel Terapi</option>
                   <option>İlk Görüşme</option>
@@ -216,7 +216,7 @@ export default function ClientsClient({ clients: initial, profileSlug }: Props) 
               </div>
               <div>
                 <label className="label">Notlar</label>
-                <textarea className="input resize-none" rows={2} placeholder="Başvuru sebebi, yönlendiren…"
+                <textarea className="input w-full resize-none" rows={2} placeholder="Başvuru sebebi, yönlendiren…"
                   value={form.notes} onChange={e => setForm(f => ({ ...f, notes: e.target.value }))} />
               </div>
               <div className="flex gap-3 pt-1">

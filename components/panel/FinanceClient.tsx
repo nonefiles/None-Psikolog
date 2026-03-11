@@ -54,9 +54,9 @@ export default function FinanceClient({ entries: initial, income, expense }: Pro
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 md:p-6">
       {/* Özet kartlar */}
-      <div className="grid grid-cols-3 gap-4 mb-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
         <div className="card p-5">
           <p className="text-xs font-bold text-muted uppercase tracking-wide">Toplam Gelir</p>
           <p className="font-serif text-3xl text-green-600 mt-1.5">₺{localIncome.toLocaleString('tr-TR')}</p>
@@ -102,7 +102,7 @@ export default function FinanceClient({ entries: initial, income, expense }: Pro
       {/* Modal */}
       {addOpen && (
         <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-lg overflow-hidden">
+          <div className="bg-white rounded-2xl w-full max-w-md shadow-lg overflow-hidden max-h-[90vh] overflow-y-auto">
             <div className="px-6 py-4 border-b border-border flex items-center justify-between">
               <h3 className="font-semibold">İşlem Ekle</h3>
               <button onClick={() => setAddOpen(false)} className="text-muted text-xl leading-none hover:text-charcoal">×</button>
@@ -125,17 +125,17 @@ export default function FinanceClient({ entries: initial, income, expense }: Pro
               </div>
               <div>
                 <label className="label">Tutar (₺) *</label>
-                <input className="input" type="number" min="1" step="0.01" required placeholder="0"
+                <input className="input w-full" type="number" min="1" step="0.01" required placeholder="0"
                   value={form.amount} onChange={e => setForm(f => ({ ...f, amount: e.target.value }))} />
               </div>
               <div>
                 <label className="label">Açıklama *</label>
-                <input className="input" required placeholder="ör. Seans ücreti — Zeynep Arslan"
+                <input className="input w-full" required placeholder="ör. Seans ücreti — Zeynep Arslan"
                   value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
               </div>
               <div>
                 <label className="label">Tarih</label>
-                <input className="input" type="date"
+                <input className="input w-full" type="date"
                   value={form.entry_date} onChange={e => setForm(f => ({ ...f, entry_date: e.target.value }))} />
               </div>
               <div className="flex gap-3 pt-1">

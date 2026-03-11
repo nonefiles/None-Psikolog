@@ -97,9 +97,9 @@ export default function DashboardClient({ todayAppts, monthAppts, totalClients, 
 
   return (
     <>
-      <div className="p-8 space-y-6">
+      <div className="p-4 md:p-8 space-y-6">
         {/* Stats */}
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {stats.map(stat => (
             <div 
               key={stat.key} 
@@ -117,11 +117,11 @@ export default function DashboardClient({ todayAppts, monthAppts, totalClients, 
         </div>
 
         {/* Main Content Grid */}
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Bugünün programı */}
-          <div className="col-span-2 space-y-6">
+          <div className="lg:col-span-2 space-y-6">
             <div className="card">
-              <div className="px-6 py-4 border-b border-border flex items-center justify-between">
+              <div className="px-4 md:px-6 py-4 border-b border-border flex items-center justify-between">
                 <h3 className="text-sm font-semibold">Bugünün Programı</h3>
                 <a href="/panel/calendar" className="text-xs text-sage hover:underline">Takvime Git →</a>
               </div>
@@ -131,21 +131,21 @@ export default function DashboardClient({ todayAppts, monthAppts, totalClients, 
                     const s = statusLabel[appt.status] ?? statusLabel.pending
                     const name = appt.client?.full_name ?? appt.guest_name ?? '—'
                     return (
-                      <li key={appt.id} className="flex items-center gap-4 px-6 py-3.5 border-b border-border/60 last:border-0 hover:bg-cream/50 transition-colors">
+                      <li key={appt.id} className="flex items-center gap-2 md:gap-4 px-4 md:px-6 py-3.5 border-b border-border/60 last:border-0 hover:bg-cream/50 transition-colors">
                         <span className="text-xs font-bold text-sage w-12 flex-shrink-0">
                           {format(new Date(appt.starts_at), 'HH:mm')}
                         </span>
-                        <div className="flex-1">
-                          <p className="text-sm font-medium">{name}</p>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium truncate">{name}</p>
                           <p className="text-xs text-muted">{appt.session_type} · {appt.duration_min} dk</p>
                         </div>
-                        <span className={s.cls}>{s.text}</span>
+                        <span className={s.cls + ' flex-shrink-0'}>{s.text}</span>
                       </li>
                     )
                   })}
                 </ul>
               ) : (
-                <div className="px-6 py-10 text-center text-sm text-muted">
+                <div className="px-4 md:px-6 py-10 text-center text-sm text-muted">
                   Bugün randevu yok
                 </div>
               )}
@@ -179,18 +179,18 @@ export default function DashboardClient({ todayAppts, monthAppts, totalClients, 
       {/* Detail Modals */}
       {selectedModal && isClient && (
         <div className="fixed inset-0 bg-black/45 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl w-full max-w-lg shadow-lg overflow-hidden">
+          <div className="bg-white rounded-2xl w-full max-w-lg shadow-lg overflow-hidden max-h-[90vh] overflow-y-auto">
             {(() => {
               const stat = stats.find(s => s.key === selectedModal)
               if (!stat) return null
 
               return (
                 <>
-                  <div className="px-6 py-4 border-b border-border flex items-center justify-between">
-                    <h3 className="font-semibold">{stat.label}</h3>
+                  <div className="px-4 md:px-6 py-4 border-b border-border flex items-center justify-between">
+                    <h3 className="font-semibold text-sm md:text-base">{stat.label}</h3>
                     <button onClick={() => setSelectedModal(null)} className="text-muted text-xl leading-none">×</button>
                   </div>
-                  <div className="p-6">
+                  <div className="p-4 md:p-6">
                     <div className="text-center mb-6">
                       <p className="font-serif text-4xl mb-2">{stat.value}</p>
                       <span className={stat.cls}>{stat.badge}</span>

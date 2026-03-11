@@ -40,8 +40,8 @@ export default async function FinancePage({
 
   return (
     <>
-      <header className="bg-white border-b border-border px-8 py-4 sticky top-0 z-40 flex items-center justify-between">
-        <h2 className="font-serif text-xl">Ön Muhasebe</h2>
+      <header className="bg-white border-b border-border px-4 md:px-8 py-4 sticky top-0 z-40 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <h2 className="font-serif text-xl md:text-2xl">Ön Muhasebe</h2>
         <div className="flex items-center gap-2">
           <a href={`/panel/finance?month=${prevMonth}`} className="btn-outline py-1.5 px-3 text-xs">‹</a>
           <span className="font-semibold text-sm px-2 capitalize min-w-[120px] text-center">{monthLabel}</span>

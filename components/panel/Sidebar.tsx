@@ -5,9 +5,11 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import {
   LayoutDashboard, CalendarDays, Users, Archive,
-  Link2, FlaskConical, BookOpen, BarChart3, LogOut
+  Link2, FlaskConical, BookOpen, BarChart3, LogOut,
+  Menu, X
 } from 'lucide-react'
 
 interface Props {
@@ -37,6 +39,7 @@ export default function Sidebar({ profile }: Props) {
   const path = usePathname()
   const router = useRouter()
   const supabase = createClient()
+  const [isOpen, setIsOpen] = useState(false)
 
   async function logout() {
     await supabase.auth.signOut()
@@ -46,7 +49,29 @@ export default function Sidebar({ profile }: Props) {
   const initials = profile.full_name.split(' ').map(n => n[0]).join('').slice(0, 2)
 
   return (
-    <aside className="w-60 bg-charcoal text-white fixed top-0 left-0 h-screen flex flex-col z-50">
+    <>
+      {/* Mobile Menu Button */}
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className="md:hidden fixed top-4 left-4 z-50 p-2.5 bg-sage text-white rounded-lg shadow-lg hover:bg-sage-dark transition-colors"
+      >
+        {isOpen ? <X size={20} /> : <Menu size={20} />}
+      </button>
+
+      {/* Mobile Overlay */}
+      {isOpen && (
+        <div
+          className="md:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setIsOpen(false)}
+        />
+      )}
+
+      {/* Sidebar */}
+      <aside className={`
+        w-60 bg-charcoal text-white fixed top-0 left-0 h-screen flex flex-col z-50
+        transform transition-transform duration-300 ease-in-out
+        ${isOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}
+      `}>
       {/* Logo */}
       <div className="px-6 py-6 border-b border-white/10">
         <h1 className="font-serif text-xl text-white">PsikoPanel</h1>
@@ -94,6 +119,7 @@ export default function Sidebar({ profile }: Props) {
           Çıkış Yap
         </button>
       </div>
-    </aside>
+      </aside>
+    </>
   )
 }
